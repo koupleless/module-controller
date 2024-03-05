@@ -11,13 +11,9 @@ env:
   CGO_ENABLED: 0
   GO_VERSION: 1.21.3
   GOOS: linux
-  WORK_DIR: module-controller
+  WORK_DIR: ./
   DOCKERHUB_REGISTRY: serverless-registry.cn-shanghai.cr.aliyuncs.com
   MODULE_CONTROLLER_IMAGE_PATH: opensource/release/module-controller
-
-defaults:
-  run:
-    working-directory: module-controller
 
 jobs:
   build-push-linux-amd64-image:
