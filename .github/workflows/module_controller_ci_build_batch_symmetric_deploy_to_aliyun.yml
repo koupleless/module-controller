@@ -5,14 +5,10 @@ on:
   push:
     branches:
       - main
-    paths:
-      - 'module-controller/**'
 
   pull_request:
     branches:
       - main
-    paths:
-      - 'module-controller/**'
 
   # enable manually running the workflow
   workflow_dispatch:
@@ -26,10 +22,6 @@ env:
   MODULE_CONTROLLER_IMAGE_PATH: opensource/test/module-controller
   INTEGRATION_TESTS_IMAGE_PATH: opensource/test/module-controller-integration-tests
   POD_NAMESPACE: default
-
-defaults:
-  run:
-    working-directory: module-controller
 
 jobs:
   unit-test:
