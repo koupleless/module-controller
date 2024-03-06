@@ -16,7 +16,7 @@ on:
 env:
   CGO_ENABLED: 0
   GOOS: linux
-  WORK_DIR: module-controller
+  WORK_DIR: .
   TAG: ci-test-master-latest
   DOCKERHUB_REGISTRY: serverless-registry.cn-shanghai.cr.aliyuncs.com
   MODULE_CONTROLLER_IMAGE_PATH: opensource/test/module-controller
