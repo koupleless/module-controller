@@ -8,4 +8,4 @@ ModuleController is Koupleless operation and scheduling system. It is a kubernet
 
 For ModuleController user documentation, please see [here](https://koupleless.io/docs/tutorials/module-operation/module-online-and-offline/).
 
-For ModuleController contributor and technical details documentation, please see [here](https://koupleless.io/docs/tutorials/module-operation/module-online-and-offline/).
+For ModuleController contributor and technical details documentation, please see [here](https://koupleless.io/docs/contribution-guidelines/module-controller/architecture/).
