@@ -25,8 +25,8 @@ func NewFromContext(moduleName string) *CommonLogger {
 	return &CommonLogger{ModuleName: moduleName, TraceId: traceId}
 }
 
-func (l *CommonLogger) log(kvList []map[string]interface{}, message, moduleName, level string, logType int) {
-	filePath := moduleName + "_" + level + ".log"
+func (l *CommonLogger) printLog(kvList []map[string]interface{}, message, moduleName, level string, logType int) {
+	filePath := moduleName + "_" + level + ".printLog"
 	file, err := os.OpenFile(filePath, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0666)
 	if err != nil {
 		panic(err)
@@ -38,8 +38,19 @@ func (l *CommonLogger) log(kvList []map[string]interface{}, message, moduleName,
 		}
 	}(file)
 
-	jsonData := map[string]interface{}{}
+	fmtLog := getFormatLog(kvList, logType)
+	fmtLog = fmt.Sprintf("%s %s\n", l.TraceId, fmtLog+message)
+
+	fmt.Println(fmtLog)
+	_, err = fmt.Fprintf(file, fmtLog)
+	if err != nil {
+		panic(err)
+	}
+}
+
+func getFormatLog(kvList []map[string]interface{}, logType int) string {
 	var fmtMsg string
+	jsonData := map[string]interface{}{}
 	for _, kv := range kvList {
 		for k, v := range kv {
 			switch logType {
@@ -60,36 +71,30 @@ func (l *CommonLogger) log(kvList []map[string]interface{}, message, moduleName,
 		}
 		fmtMsg = string(jsonString)
 	}
-
-	fmtMsg = fmt.Sprintf("%s %s\n", l.TraceId, fmtMsg+message)
-	fmt.Println(fmtMsg)
-	_, err = fmt.Fprintf(file, fmtMsg)
-	if err != nil {
-		panic(err)
-	}
+	return fmtMsg
 }
 
 func (l *CommonLogger) Info(kvList []map[string]interface{}, message string) {
-	l.log(kvList, message, l.ModuleName, InfoLevel, 0)
+	l.printLog(kvList, message, l.ModuleName, InfoLevel, 0)
 }
 
 func (l *CommonLogger) InfoKV(kvList []map[string]interface{}, message string) {
-	l.log(kvList, message, l.ModuleName, InfoLevel, 1)
+	l.printLog(kvList, message, l.ModuleName, InfoLevel, 1)
 }
 
 func (l *CommonLogger) InfoJSON(kvList []map[string]interface{}, message string) {
-	l.log(kvList, message, l.ModuleName, InfoLevel, 2)
+	l.printLog(kvList, message, l.ModuleName, InfoLevel, 2)
 }
 
 func (l *CommonLogger) Error(kvList []map[string]interface{}, message string) {
-	l.log(kvList, message, l.ModuleName, ErrorLevel, 0)
+	l.printLog(kvList, message, l.ModuleName, ErrorLevel, 0)
 }
 
 func (l *CommonLogger) ErrorKV(kvList []map[string]interface{}, message string) {
-	l.log(kvList, message, l.ModuleName, ErrorLevel, 1)
+	l.printLog(kvList, message, l.ModuleName, ErrorLevel, 1)
 }
 
 func (l *CommonLogger) ErrorJSON(kvList []map[string]interface{}, message string) {
-	l.log(kvList, message, l.ModuleName, ErrorLevel, 2)
+	l.printLog(kvList, message, l.ModuleName, ErrorLevel, 2)
 
 }
