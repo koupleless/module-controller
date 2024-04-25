@@ -29,40 +29,48 @@ type Config struct {
 	LogFormat    logrus.Formatter
 }
 
+var ModuleToLoggers map[string]*logrus.Logger
 var config Config
 
 func Initialize(cfg Config) {
 	config = cfg
-	logrus.SetFormatter(config.LogFormat)
-	switch config.LogLevel {
-	case InfoLevel:
-		logrus.SetLevel(logrus.InfoLevel)
-	case WarnLevel:
-		logrus.SetLevel(logrus.WarnLevel)
-	case ErrorLevel:
-		logrus.SetLevel(logrus.ErrorLevel)
-	default:
-		logrus.SetLevel(logrus.InfoLevel)
-	}
+	ModuleToLoggers = make(map[string]*logrus.Logger)
 
-	for _, file := range config.ModuleToFile {
+	for module, file := range config.ModuleToFile {
+		// setting log level
+		switch config.LogLevel {
+		case InfoLevel:
+			logrus.SetLevel(logrus.InfoLevel)
+		case WarnLevel:
+			logrus.SetLevel(logrus.WarnLevel)
+		case ErrorLevel:
+			logrus.SetLevel(logrus.ErrorLevel)
+		default:
+			logrus.SetLevel(logrus.InfoLevel)
+		}
+
 		path := filepath.Dir(file)
 		if err := os.MkdirAll(path, os.ModePerm); err != nil {
 			logrus.WithError(err).Fatal("cannot create log directory")
 		}
-		file, err := os.OpenFile(file, os.O_CREATE|os.O_WRONLY|os.O_APPEND, 0666)
+		logFile, err := os.OpenFile(file, os.O_CREATE|os.O_WRONLY|os.O_APPEND, 0666)
 		if err != nil {
 			logrus.WithError(err).Fatal("cannot open log file")
 		}
 
-		logrus.SetOutput(file)
+		// create logger instance for each module
+		logger := logrus.New()
+		// setting module log output
+		logger.Out = logFile
+		logger.Formatter = config.LogFormat
+		ModuleToLoggers[module] = logger
 	}
 }
 
 func New(moduleName string) *Logger {
 	return &Logger{
 		moduleName: moduleName,
-		logger:     logrus.WithField("module", moduleName),
+		logger:     ModuleToLoggers[moduleName].WithField("", ""),
 	}
 }
 
@@ -73,7 +81,7 @@ func NewFromContext(ctx context.Context, moduleName string) *Logger {
 	}
 	return &Logger{
 		moduleName: moduleName,
-		logger:     logrus.WithField("module", moduleName).WithField(TraceID, traceID),
+		logger:     ModuleToLoggers[moduleName].WithField(TraceID, traceID),
 	}
 }
 
