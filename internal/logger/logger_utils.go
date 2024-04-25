@@ -2,9 +2,11 @@ package logger
 
 import (
 	"context"
+	"fmt"
 	"github.com/sirupsen/logrus"
 	"os"
 	"path/filepath"
+	"time"
 )
 
 type LogLevel string
@@ -27,6 +29,17 @@ type Config struct {
 	ModuleToFile map[string]string
 	LogLevel     LogLevel
 	LogFormat    logrus.Formatter
+}
+
+type TextVFormatter struct{}
+
+func (f *TextVFormatter) Format(entry *logrus.Entry) ([]byte, error) {
+	timestamp := entry.Time.Format(time.RFC3339)
+	traceID := entry.Data[TraceID]
+	logLevel := entry.Level.String()
+	message := entry.Message
+	log := fmt.Sprintf("%s [%s][%s] %s\n", timestamp, traceID, logLevel, message)
+	return []byte(log), nil
 }
 
 var ModuleToLoggers map[string]*logrus.Logger

@@ -22,13 +22,13 @@ func TestLogger_Schedule_Json(t *testing.T) {
 	logger.Error(Fields{"key": "value"}, "a mc error occurred")
 }
 
-func TestLogger_module_controller_text(t *testing.T) {
+func TestLogger_module_controller_CustomVText(t *testing.T) {
 	config := Config{ModuleToFile: map[string]string{
 		"schedule":          "logs/schedule.log",
 		"module_controller": "logs/module_controller.log",
 	},
 		LogLevel:  InfoLevel,
-		LogFormat: &logrus.TextFormatter{},
+		LogFormat: &TextVFormatter{},
 	}
 
 	Initialize(config)
