@@ -2,14 +2,15 @@ package logger
 
 import (
 	"context"
+	"fmt"
 	"github.com/sirupsen/logrus"
 	"testing"
 )
 
-func TestLogger_Schedule_Json(t *testing.T) {
-	config := Config{ModuleToFile: map[string]string{
-		"schedule":          "logs/schedule.log",
-		"module_controller": "logs/module_controller.log",
+func TestLogger_Json(t *testing.T) {
+	config := Config{ModuleNameToLogFileDir: map[string]string{
+		"schedule":          "logs",
+		"module_controller": "logs",
 	},
 		LogLevel:  InfoLevel,
 		LogFormat: &logrus.JSONFormatter{},
@@ -20,40 +21,34 @@ func TestLogger_Schedule_Json(t *testing.T) {
 	logger := New("schedule")
 	logger.Info(Fields{"hello": "word", "foo": "bar"}, "message")
 	logger.Error(Fields{"key": "value"}, "a mc error occurred")
+
+	ctx := context.WithValue(context.Background(), TraceID, "12345")
+	logger = NewFromContext(ctx, "module_controller")
+	logger.Info(Fields{"hello": "word", "foo": "bar"}, "message")
+	logger.Error(Fields{"key": "value"}, "a mc error occurred")
 }
 
-func TestLogger_module_controller_CustomVText(t *testing.T) {
-	config := Config{ModuleToFile: map[string]string{
-		"schedule":          "logs/schedule.log",
-		"module_controller": "logs/module_controller.log",
+func TestLogger_CustomVText(t *testing.T) {
+	config := Config{ModuleNameToLogFileDir: map[string]string{
+		"schedule":          "logs",
+		"module_controller": "logs",
 	},
-		LogLevel:  InfoLevel,
+		LogLevel:  ErrorLevel,
 		LogFormat: &TextVFormatter{},
 	}
 
 	Initialize(config)
 
-	ctx := context.WithValue(context.Background(), TraceID, "12345")
-	logger := NewFromContext(ctx, "module_controller")
-	logger.Info(Fields{"hello": "word", "foo": "bar"}, "message")
-	logger.Error(Fields{"key": "value"}, "a mc error occurred")
-}
-
-func TestLogger_Warn(t *testing.T) {
-	config := Config{ModuleToFile: map[string]string{
-		"schedule":          "logs/schedule.log",
-		"module_controller": "logs/module_controller.log",
-	},
-		LogLevel:  InfoLevel,
-		LogFormat: &logrus.TextFormatter{},
-	}
-
-	Initialize(config)
-
 	logger := New("schedule")
-	logger.Info(Fields{"hello": "word", "foo": "bar"}, "message")
+	logger.Info(Fields{"hello": "word", "foo": "bar"}, "info message")
+	logger.Error(Fields{"key": "value"}, "error message")
 
 	ctx := context.WithValue(context.Background(), TraceID, "12345")
 	logger = NewFromContext(ctx, "module_controller")
-	logger.Error(Fields{"key": "value"}, "a mc error occurred")
+	for i := 0; i < 10; i++ {
+		logger.Info(Fields{"hello": "word", "foo": "bar"}, fmt.Sprintf("info message %d", i))
+	}
+	for i := 0; i < 10; i++ {
+		logger.Error(Fields{"hello": "word", "foo": "bar"}, fmt.Sprintf("info message %d", i))
+	}
 }
