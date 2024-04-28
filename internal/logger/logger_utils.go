@@ -6,6 +6,7 @@ import (
 	"github.com/sirupsen/logrus"
 	"gopkg.in/natefinch/lumberjack.v2"
 	"path/filepath"
+	"strconv"
 	"time"
 )
 
@@ -34,7 +35,7 @@ type Config struct {
 type TextVFormatter struct{}
 
 func (f *TextVFormatter) Format(entry *logrus.Entry) ([]byte, error) {
-	timestamp := entry.Time.Format(time.RFC3339)
+	timestamp := entry.Time.Format("2006-01-02T15:04:05.999Z07:00")
 	traceID := entry.Data[TraceID]
 	logLevel := entry.Level.String()
 	message := entry.Message
@@ -42,23 +43,23 @@ func (f *TextVFormatter) Format(entry *logrus.Entry) ([]byte, error) {
 	return []byte(log), nil
 }
 
-var ModuleNameToLoggers map[string]*logrus.Logger
+var FileNameToLoggers map[string]*logrus.Logger
 var config Config
 
 func Initialize(cfg Config) {
 	config = cfg
-	ModuleNameToLoggers = make(map[string]*logrus.Logger)
+	FileNameToLoggers = make(map[string]*logrus.Logger)
 	setLogLevel()
 
 	for moduleName, logFileDir := range config.ModuleNameToLogFileDir {
-		logger := createLogger(moduleName, logFileDir, "info")
-		ModuleNameToLoggers[fmt.Sprintf("%s_%v", moduleName, "info")] = logger
-		logger = createLogger(moduleName, logFileDir, "error")
-		ModuleNameToLoggers[fmt.Sprintf("%s_%v", moduleName, "error")] = logger
+		logger := createLogger(moduleName, logFileDir, InfoLevel)
+		FileNameToLoggers[fmt.Sprintf("%s_%v", moduleName, InfoLevel)] = logger
+		logger = createLogger(moduleName, logFileDir, ErrorLevel)
+		FileNameToLoggers[fmt.Sprintf("%s_%v", moduleName, ErrorLevel)] = logger
 	}
 }
 
-func createLogger(moduleName, logFileDir, logLevel string) *logrus.Logger {
+func createLogger(moduleName, logFileDir string, logLevel LogLevel) *logrus.Logger {
 	logFilePath := getLogFilePath(logFileDir, moduleName, logLevel)
 	logger := logrus.New()
 	logger.Formatter = config.LogFormat
@@ -86,7 +87,7 @@ func setLogLevel() {
 	}
 }
 
-func getLogFilePath(logDir, moduleName, logLevel string) string {
+func getLogFilePath(logDir, moduleName string, logLevel LogLevel) string {
 	fileName := fmt.Sprintf("%s_%s.log", moduleName, logLevel)
 	return filepath.Join(logDir, fileName)
 }
@@ -94,25 +95,25 @@ func getLogFilePath(logDir, moduleName, logLevel string) string {
 func New(moduleName string) *Logger {
 	return &Logger{
 		moduleName: moduleName,
-		logger:     ModuleNameToLoggers[fmt.Sprintf("%s_%v", moduleName, "info")].WithField(TraceID, ""),
-	}
-}
-
-func NewError(moduleName string) *Logger {
-	return &Logger{
-		moduleName: moduleName,
-		logger:     ModuleNameToLoggers[fmt.Sprintf("%s_%v", moduleName, "error")].WithField(TraceID, ""),
+		logger:     FileNameToLoggers[fmt.Sprintf("%s_%v", moduleName, InfoLevel)].WithField(TraceID, ""),
 	}
 }
 
 func NewFromContext(ctx context.Context, moduleName string) *Logger {
-	traceID, ok := ctx.Value(TraceID).(string)
+	traceId, ok := ctx.Value(TraceID).(string)
 	if !ok {
-		traceID = "unknown"
+		traceId = "unknown"
 	}
 	return &Logger{
 		moduleName: moduleName,
-		logger:     ModuleNameToLoggers[fmt.Sprintf("%s_%v", moduleName, "info")].WithField(TraceID, traceID),
+		logger:     FileNameToLoggers[fmt.Sprintf("%s_%v", moduleName, InfoLevel)].WithField(TraceID, traceId),
+	}
+}
+
+func NewFromContextError(traceID interface{}, moduleName string) *Logger {
+	return &Logger{
+		moduleName: moduleName,
+		logger:     FileNameToLoggers[fmt.Sprintf("%s_%v", moduleName, ErrorLevel)].WithField(TraceID, traceID),
 	}
 }
 
@@ -127,5 +128,10 @@ func (l *Logger) Warn(fields Fields, message string) {
 func (l *Logger) Error(fields Fields, message string) {
 	l.logger.WithFields(logrus.Fields(fields)).Error(message)
 
-	NewError(l.moduleName).logger.WithFields(logrus.Fields(fields)).Error(message)
+	NewFromContextError(l.logger.Data[TraceID], l.moduleName).logger.WithFields(logrus.Fields(fields)).Error(message)
+}
+
+func GetTraceId() string {
+	traceId := time.Now().UnixMicro()
+	return strconv.FormatInt(traceId, 10)
 }
