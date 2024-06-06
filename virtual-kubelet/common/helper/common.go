@@ -12,7 +12,7 @@
  * limitations under the License.
  */
 
-package common
+package helper
 
 func NewIfNil[T any](slice []T) []T {
 	if slice == nil {

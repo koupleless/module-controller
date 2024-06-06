@@ -239,11 +239,17 @@ func (b *BaseProvider) DeletePod(ctx context.Context, pod *corev1.Pod) error {
 	return nil
 }
 
+// GetPod this method is simply used to return the observed pod by local
+//
+//	so the outer control loop can call CreatePod / UpdatePod / DeletePod accordingly
+//	just return the pod from the local store
 func (b *BaseProvider) GetPod(_ context.Context, namespace, name string) (*corev1.Pod, error) {
 	return b.runtimeInfoStore.GetPodByKey(namespace + "/" + name), nil
 }
 
 // GetPodStatus this will be called repeatedly by virtual kubelet framework to get the pod status
+//
+//	we should query the actual runtime info and translate them in to V1PodStatus accordingly
 func (b *BaseProvider) GetPodStatus(ctx context.Context, namespace, name string) (*corev1.PodStatus, error) {
 	bizInfos, err := b.queryAllBiz(ctx)
 	if err != nil {
