@@ -17,6 +17,7 @@ package common
 import (
 	"github.com/koupleless/arkctl/common/fileutil"
 	"github.com/koupleless/arkctl/v1/service/ark"
+	"github.com/koupleless/module-controller/virtual-kubelet/java/model"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
@@ -114,4 +115,30 @@ func (c ModelUtils) TranslateArkBizInfoToV1ContainerStatus(bizModel *ark.BizMode
 
 	}
 	return ret
+}
+
+func (c ModelUtils) BuildVirtualNode(
+	config *model.BuildVirtualNodeConfig,
+	node *corev1.Node) {
+	if node.ObjectMeta.Labels == nil {
+		node.ObjectMeta.Labels = make(map[string]string)
+	}
+	node.Labels["basement.koupleless.io/stack"] = config.TechStack
+	node.Labels["basement.koupleless.io/version"] = config.Version
+	node.Spec.Taints = []corev1.Taint{
+		{
+			Key:    "schedule.koupleless.io/virtual-node",
+			Value:  "True",
+			Effect: corev1.TaintEffectNoSchedule,
+		},
+	}
+	node.Status = corev1.NodeStatus{
+		Phase: corev1.NodeRunning,
+		Addresses: []corev1.NodeAddress{
+			{
+				Type:    corev1.NodeInternalIP,
+				Address: config.NodeIP,
+			},
+		},
+	}
 }

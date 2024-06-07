@@ -16,9 +16,13 @@ package node
 
 import (
 	"context"
-	"encoding/json"
+	"fmt"
 	"os"
+	"strconv"
 
+	"github.com/koupleless/module-controller/virtual-kubelet/common/helper"
+	"github.com/koupleless/module-controller/virtual-kubelet/java/common"
+	"github.com/koupleless/module-controller/virtual-kubelet/java/model"
 	"github.com/virtual-kubelet/virtual-kubelet/node"
 	corev1 "k8s.io/api/core/v1"
 )
@@ -31,18 +35,35 @@ type NodeProvider interface {
 }
 
 var _ NodeProvider = &VirtualKubeletNode{}
+var modelUtils = common.ModelUtils{}
 
 type VirtualKubeletNode struct {
-	NodeName     string
-	NodeJsonPath string // poc only
+	nodeConfig *model.BuildVirtualNodeConfig
+}
+
+func NewVirtualKubeletNode() *VirtualKubeletNode {
+	techStack := os.Getenv("TECH_STACK")
+	vNodeCapacityStr := os.Getenv("VNODE_POD_CAPACITY")
+	if len(vNodeCapacityStr) == 0 {
+		vNodeCapacityStr = "1"
+	}
+
+	vnode := model.BuildVirtualNodeConfig{
+		NodeName:     fmt.Sprintf("vk-%s-%s-%s", techStack, os.Getenv("POD_NAMESPACE"), os.Getenv("POD_NAME")),
+		NodeIP:       os.Getenv("POD_IP"),
+		TechStack:    techStack,
+		Version:      os.Getenv("VNODE_VERSION"),
+		VPodCapacity: int(helper.MustReturnFirst[int64](strconv.ParseInt(vNodeCapacityStr, 10, 64))),
+	}
+
+	return &VirtualKubeletNode{
+		nodeConfig: &vnode,
+	}
 }
 
 func (v *VirtualKubeletNode) Register(_ context.Context, node *corev1.Node) error {
-	bytes, err := os.ReadFile(v.NodeJsonPath)
-	if err != nil {
-		return err
-	}
-	return json.Unmarshal(bytes, node)
+	modelUtils.BuildVirtualNode(v.nodeConfig, node)
+	return nil
 }
 
 func (v *VirtualKubeletNode) Ping(_ context.Context) error {
@@ -50,6 +71,6 @@ func (v *VirtualKubeletNode) Ping(_ context.Context) error {
 	return nil
 }
 
-func (v VirtualKubeletNode) NotifyNodeStatus(_ context.Context, _ func(*corev1.Node)) {
+func (v *VirtualKubeletNode) NotifyNodeStatus(_ context.Context, _ func(*corev1.Node)) {
 	// todo: sync base status to k8s
 }

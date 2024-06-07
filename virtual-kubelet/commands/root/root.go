@@ -18,7 +18,6 @@ import (
 	"context"
 	"crypto/tls"
 	"net/http"
-	"os"
 	"runtime"
 
 	podlet "github.com/koupleless/module-controller/virtual-kubelet/java/pod/let"
@@ -29,7 +28,6 @@ import (
 	"github.com/virtual-kubelet/virtual-kubelet/node"
 	"github.com/virtual-kubelet/virtual-kubelet/node/api"
 	"github.com/virtual-kubelet/virtual-kubelet/node/nodeutil"
-	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apiserver/pkg/server/dynamiccertificates"
 )
 
@@ -59,15 +57,6 @@ func runRootCommand(ctx context.Context, c Opts) error {
 		return errdefs.InvalidInput("pod sync workers must be greater than 0")
 	}
 
-	var taint *corev1.Taint
-	if !c.DisableTaint {
-		var err error
-		taint, err = getTaint(c)
-		if err != nil {
-			return err
-		}
-	}
-
 	// Ensure API client.
 	clientSet, err := nodeutil.ClientsetFromEnv(c.KubeConfigPath)
 	if err != nil {
@@ -84,10 +73,7 @@ func runRootCommand(ctx context.Context, c Opts) error {
 	cm, err := nodeutil.NewNode(
 		c.NodeName,
 		func(config nodeutil.ProviderConfig) (nodeutil.Provider, node.NodeProvider, error) {
-			nodeProvider := &podnode.VirtualKubeletNode{
-				NodeName:     c.NodeName,
-				NodeJsonPath: os.Getenv("VK_NODE_JSON_PATH"),
-			}
+			nodeProvider := podnode.NewVirtualKubeletNode()
 			// initialize node spec on bootstrap
 			nodeProvider.Register(ctx, config.Node)
 			return podlet.NewBaseProvider(config.Node.Namespace), nodeProvider, nil
@@ -96,13 +82,8 @@ func runRootCommand(ctx context.Context, c Opts) error {
 			cfg.KubeconfigPath = c.KubeConfigPath
 			cfg.Handler = mux
 			cfg.InformerResyncPeriod = c.InformerResyncPeriod
-
-			if taint != nil {
-				cfg.NodeSpec.Spec.Taints = append(cfg.NodeSpec.Spec.Taints, *taint)
-			}
 			cfg.NodeSpec.Status.NodeInfo.Architecture = runtime.GOARCH
 			cfg.NodeSpec.Status.NodeInfo.OperatingSystem = c.OperatingSystem
-
 			cfg.HTTPListenAddr = apiConfig.Addr
 			cfg.StreamCreationTimeout = apiConfig.StreamCreationTimeout
 			cfg.StreamIdleTimeout = apiConfig.StreamIdleTimeout

@@ -12,11 +12,21 @@
  * limitations under the License.
  */
 
-package helper
+package model
 
-func MustReturnFirst[T any](result T, err error) T {
-	if err != nil {
-		panic(err)
-	}
-	return result
+type BuildVirtualNodeConfig struct {
+	// NodeName is the name of the node
+	NodeName string `json:"nodeName"`
+
+	// NodeIP is the ip of the node
+	NodeIP string `json:"nodeIP"`
+
+	// TechStack is the underlying tech stack of runtime
+	TechStack string `json:"techStack"`
+
+	// Version is the version of ths underlying runtime
+	Version string `json:"version"`
+
+	// VPodCapacity limits the number of vPods that can be created on this node
+	VPodCapacity int `json:"vPodCapacity"`
 }
