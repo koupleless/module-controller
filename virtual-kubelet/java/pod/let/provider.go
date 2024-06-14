@@ -252,8 +252,10 @@ func (b *BaseProvider) GetPod(_ context.Context, namespace, name string) (*corev
 }
 
 // GetPodStatus this will be called repeatedly by virtual kubelet framework to get the pod status
+// we should query the actual runtime info and translate them in to V1PodStatus accordingly
+// todo: 目前 pod 的 status 状态是直接从 arklet 中查询和转换的，但是没有时间戳信息，所以无法提交对应的事件和开始时间。
 //
-//	we should query the actual runtime info and translate them in to V1PodStatus accordingly
+//	当未来 arklet 提供了更多的信息时，我们可以相应的设置时间。
 func (b *BaseProvider) GetPodStatus(ctx context.Context, namespace, name string) (*corev1.PodStatus, error) {
 	bizInfos, err := b.queryAllBiz(ctx)
 	if err != nil {
@@ -314,11 +316,11 @@ func (b *BaseProvider) GetPodStatus(ctx context.Context, namespace, name string)
 		podStatus.Phase = corev1.PodRunning
 		podStatus.Conditions = []corev1.PodCondition{
 			{
-				Type:   "basement.koupleless.io/installed",
+				Type:   "module.koupleless.io/installed",
 				Status: corev1.ConditionTrue,
 			},
 			{
-				Type:   "basement.koupleless.io/ready",
+				Type:   "module.koupleless.io/ready",
 				Status: corev1.ConditionTrue,
 			},
 		}
