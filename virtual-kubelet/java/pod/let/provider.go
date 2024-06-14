@@ -52,11 +52,11 @@ func NewBaseProvider(namespace string) *BaseProvider {
 	provider := &BaseProvider{
 		namespace:        namespace,
 		localIP:          LOOP_BACK_IP, //todo: get the local ip
-		arkService:       nil,
+		arkService:       ark.BuildService(context.Background()),
 		modelUtils:       common.ModelUtils{},
 		runtimeInfoStore: NewRuntimeInfoStore(),
 		operationQueue:   nil, // todo: create a new queue
-		port:             0,
+		port:             1238,
 	}
 
 	provider.operationQueue = queue.New(
@@ -71,6 +71,10 @@ func NewBaseProvider(namespace string) *BaseProvider {
 	)
 
 	return provider
+}
+
+func (b *BaseProvider) Run(ctx context.Context) {
+	b.operationQueue.Run(ctx, 1)
 }
 
 func (b *BaseProvider) queryAllBiz(ctx context.Context) ([]ark.ArkBizInfo, error) {
@@ -284,7 +288,7 @@ func (b *BaseProvider) GetPodStatus(ctx context.Context, namespace, name string)
 	*/
 
 	for _, bizModel := range bizModels {
-		info := bizRuntimeInfos[bizModel.BizName+bizModel.BizVersion]
+		info := bizRuntimeInfos[b.modelUtils.GetBizIdentityFromBizModel(bizModel)]
 		containerStatus := b.modelUtils.TranslateArkBizInfoToV1ContainerStatus(bizModel, info)
 		containerStatuses[bizModel.BizName] = containerStatus
 

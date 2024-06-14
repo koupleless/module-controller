@@ -19,7 +19,9 @@ import (
 	"github.com/koupleless/arkctl/v1/service/ark"
 	"github.com/koupleless/module-controller/virtual-kubelet/java/model"
 	corev1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"strconv"
 )
 
 // ModelUtils
@@ -75,7 +77,7 @@ func (c ModelUtils) TranslateArkBizInfoToV1ContainerStatus(bizModel *ark.BizMode
 		bizInfo != nil && bizInfo.BizState == "ACTIVATED"
 
 	ret := &corev1.ContainerStatus{
-		Name:        bizInfo.BizName,
+		Name:        bizModel.BizName,
 		ContainerID: c.GetBizIdentityFromBizModel(bizModel),
 		State:       corev1.ContainerState{},
 		Ready:       started,
@@ -129,7 +131,7 @@ func (c ModelUtils) BuildVirtualNode(
 		{
 			Key:    "schedule.koupleless.io/virtual-node",
 			Value:  "True",
-			Effect: corev1.TaintEffectNoSchedule,
+			Effect: corev1.TaintEffectNoExecute,
 		},
 	}
 	node.Status = corev1.NodeStatus{
@@ -139,6 +141,15 @@ func (c ModelUtils) BuildVirtualNode(
 				Type:    corev1.NodeInternalIP,
 				Address: config.NodeIP,
 			},
+		},
+		Conditions: []corev1.NodeCondition{
+			{
+				Type:   corev1.NodeReady,
+				Status: corev1.ConditionTrue,
+			},
+		},
+		Capacity: map[corev1.ResourceName]resource.Quantity{
+			"pods": resource.MustParse(strconv.Itoa(config.VPodCapacity)),
 		},
 	}
 }

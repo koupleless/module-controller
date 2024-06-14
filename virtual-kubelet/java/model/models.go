@@ -15,9 +15,6 @@
 package model
 
 type BuildVirtualNodeConfig struct {
-	// NodeName is the name of the node
-	NodeName string `json:"nodeName"`
-
 	// NodeIP is the ip of the node
 	NodeIP string `json:"nodeIP"`
 

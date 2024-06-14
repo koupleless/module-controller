@@ -1,0 +1,29 @@
+apiVersion: v1
+kind: Pod
+metadata:
+  labels:
+    module.koupleless.io/dynamic-provider: 1.0.2
+  name: virtual-dynamic-provider-0
+spec:
+  affinity:
+    nodeAffinity:
+      requiredDuringSchedulingIgnoredDuringExecution:
+        nodeSelectorTerms:
+          - matchExpressions:
+              - key: basement.koupleless.io/stack
+                operator: In
+                values:
+                  - java # 多语言环境下可能有其他技术栈
+  tolerations:
+    - key: "schedule.koupleless.io/virtual-node"
+      operator: "Equal"
+      value: "True"
+      effect: "NoExecute"
+  readinessGates:
+    - conditionType: "module.koupleless.io/ready"
+  containers:
+    - name: provider
+      image: http://koupleless.oss-cn-shanghai.aliyuncs.com/module-packages/stable/dynamic-provider-1.0.2-ark-biz.jar
+      env:
+        - name: BIZ_VERSION
+          value: 1.0.2

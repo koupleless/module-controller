@@ -70,13 +70,15 @@ func runRootCommand(ctx context.Context, c Opts) error {
 		return err
 	}
 
+	var provider *podlet.BaseProvider
 	cm, err := nodeutil.NewNode(
 		c.NodeName,
 		func(config nodeutil.ProviderConfig) (nodeutil.Provider, node.NodeProvider, error) {
 			nodeProvider := podnode.NewVirtualKubeletNode()
 			// initialize node spec on bootstrap
 			nodeProvider.Register(ctx, config.Node)
-			return podlet.NewBaseProvider(config.Node.Namespace), nodeProvider, nil
+			provider = podlet.NewBaseProvider(config.Node.Namespace)
+			return provider, nodeProvider, nil
 		},
 		func(cfg *nodeutil.NodeConfig) error {
 			cfg.KubeconfigPath = c.KubeConfigPath
@@ -93,11 +95,11 @@ func runRootCommand(ctx context.Context, c Opts) error {
 			return nil
 		},
 		nodeutil.WithClient(clientSet),
-		setAuth(c.NodeName, apiConfig),
-		nodeutil.WithTLSConfig(
-			nodeutil.WithKeyPairFromPath(apiConfig.CertPath, apiConfig.KeyPath),
-			maybeCA(apiConfig.CACertPath),
-		),
+		//setAuth(c.NodeName, apiConfig),
+		//nodeutil.WithTLSConfig(
+		//	nodeutil.WithKeyPairFromPath(apiConfig.CertPath, apiConfig.KeyPath),
+		//maybeCA(apiConfig.CACertPath),
+		//),
 		nodeutil.AttachProviderRoutes(mux),
 	)
 	if err != nil {
@@ -115,6 +117,7 @@ func runRootCommand(ctx context.Context, c Opts) error {
 		"watchedNamespace": c.KubeNamespace,
 	}))
 
+	go provider.Run(ctx)
 	go cm.Run(ctx) //nolint:errcheck
 
 	defer func() {

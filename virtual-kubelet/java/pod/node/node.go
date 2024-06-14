@@ -16,7 +16,6 @@ package node
 
 import (
 	"context"
-	"fmt"
 	"os"
 	"strconv"
 
@@ -49,7 +48,6 @@ func NewVirtualKubeletNode() *VirtualKubeletNode {
 	}
 
 	vnode := model.BuildVirtualNodeConfig{
-		NodeName:     fmt.Sprintf("vk-%s-%s-%s", techStack, os.Getenv("POD_NAMESPACE"), os.Getenv("POD_NAME")),
 		NodeIP:       os.Getenv("POD_IP"),
 		TechStack:    techStack,
 		Version:      os.Getenv("VNODE_VERSION"),
