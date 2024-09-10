@@ -143,24 +143,10 @@ func (c *Client) Connect() error {
 	return token.Error()
 }
 
-// PubWithTimeout publish a message to target topic with timeout config, return false if send failed or timeout
-func (c *Client) PubWithTimeout(topic string, qos byte, msg []byte, timeout time.Duration) error {
-	token := c.client.Publish(topic, qos, true, msg)
-	token.WaitTimeout(timeout)
-	return token.Error()
-}
-
 // Pub publish a message to target topic, waiting for publish operation finish, return false if send failed
 func (c *Client) Pub(topic string, qos byte, msg []byte) error {
 	token := c.client.Publish(topic, qos, true, msg)
 	token.Wait()
-	return token.Error()
-}
-
-// SubWithTimeout subscribe a topic with callback, return false if subscription's creation fail or creation timeout
-func (c *Client) SubWithTimeout(topic string, qos byte, timeout time.Duration, callBack mqtt.MessageHandler) error {
-	token := c.client.Subscribe(topic, qos, callBack)
-	token.WaitTimeout(timeout)
 	return token.Error()
 }
 

@@ -16,23 +16,27 @@ package main
 
 import (
 	"context"
-	"github.com/koupleless/module_controller/cmd/module-controller/app"
+	"github.com/google/uuid"
+	"github.com/koupleless/module_controller/common/model"
+	"github.com/koupleless/module_controller/module_tunnels/koupleless_mqtt_tunnel"
 	"github.com/koupleless/virtual-kubelet/common/log"
 	logruslogger "github.com/koupleless/virtual-kubelet/common/log/logrus"
 	"github.com/koupleless/virtual-kubelet/common/trace"
 	"github.com/koupleless/virtual-kubelet/common/trace/opencensus"
-	"github.com/pkg/errors"
+	"github.com/koupleless/virtual-kubelet/common/tracker"
+	"github.com/koupleless/virtual-kubelet/common/utils"
+	"github.com/koupleless/virtual-kubelet/controller/vnode_controller"
+	vkModel "github.com/koupleless/virtual-kubelet/model"
+	"github.com/koupleless/virtual-kubelet/tunnel"
 	"github.com/sirupsen/logrus"
-	"github.com/spf13/cobra"
 	"os"
 	"os/signal"
-	"strings"
+	"sigs.k8s.io/controller-runtime/pkg/cache"
+	"sigs.k8s.io/controller-runtime/pkg/client/config"
+	"sigs.k8s.io/controller-runtime/pkg/manager"
+	"sigs.k8s.io/controller-runtime/pkg/manager/signals"
+	"sigs.k8s.io/controller-runtime/pkg/metrics/server"
 	"syscall"
-)
-
-var (
-	buildVersion = "0.0.1"
-	k8sVersion   = "v1.28.9" // This should follow the version of k8s.io/kubernetes we are importing
 )
 
 func main() {
@@ -47,42 +51,65 @@ func main() {
 	log.L = logruslogger.FromLogrus(logrus.NewEntry(logrus.StandardLogger()))
 	trace.T = opencensus.Adapter{}
 
-	var opts app.Opts
-	optsErr := app.SetDefaultOpts(&opts)
-	opts.Version = strings.Join([]string{k8sVersion, "vk", buildVersion}, "-")
+	clientID := uuid.New().String()
+	env := utils.GetEnv("ENV", "dev")
 
-	rootCmd := app.NewCommand(ctx, opts)
-	preRun := rootCmd.PreRunE
+	ctx = log.WithLogger(ctx, log.G(ctx).WithFields(log.Fields{
+		"clientID": clientID,
+		"env":      env,
+	}))
 
-	var logLevel string
-	rootCmd.PreRunE = func(cmd *cobra.Command, args []string) error {
-		if optsErr != nil {
-			return optsErr
-		}
-		if preRun != nil {
-			return preRun(cmd, args)
-		}
-		return nil
+	kubeConfig := config.GetConfigOrDie()
+	mgr, err := manager.New(kubeConfig, manager.Options{
+		Cache: cache.Options{},
+		Metrics: server.Options{
+			BindAddress: ":9090",
+		},
+		PprofBindAddress: ":9091",
+	})
+
+	if err != nil {
+		log.G(ctx).Error(err, "unable to set up overall controller manager")
+		os.Exit(1)
 	}
 
-	rootCmd.PersistentFlags().StringVar(&logLevel, "log-level", "info", `set the log level, e.g. "debug", "info", "warn", "error"`)
+	tracker.SetTracker(&tracker.DefaultTracker{})
 
-	rootCmd.PersistentPreRunE = func(cmd *cobra.Command, args []string) error {
-		if logLevel != "" {
-			lvl, err := logrus.ParseLevel(logLevel)
-			if err != nil {
-				return errors.Wrap(err, "could not parse log level")
-			}
-			logrus.SetLevel(lvl)
-		}
-		logrus.SetFormatter(&logrus.TextFormatter{
-			FullTimestamp:   true,
-			TimestampFormat: "2006-01-02 15:04:05.000",
-		})
-		return nil
+	tunnels := []tunnel.Tunnel{
+		&koupleless_mqtt_tunnel.MqttTunnel{},
 	}
 
-	if err := rootCmd.Execute(); err != nil && errors.Cause(err) != context.Canceled {
-		log.G(ctx).Fatal(err)
+	rcc := vkModel.BuildVNodeControllerConfig{
+		ClientID:     clientID,
+		Env:          env,
+		VPodIdentity: model.ComponentModule,
+	}
+
+	vc, err := vnode_controller.NewVNodeController(&rcc, tunnels)
+	if err != nil {
+		log.G(ctx).Error(err, "unable to set up VNodeController")
+		return
+	}
+
+	err = vc.SetupWithManager(ctx, mgr)
+	if err != nil {
+		log.G(ctx).WithError(err).Error("unable to setup vnode controller")
+		return
+	}
+
+	for _, t := range tunnels {
+		err = t.Start(ctx, clientID, env)
+		if err != nil {
+			log.G(ctx).WithError(err).Error("failed to start tunnel", t.Key())
+		} else {
+			log.G(ctx).Info("Tunnel started: ", t.Key())
+		}
+	}
+
+	log.G(ctx).Info("Module controller running")
+
+	err = mgr.Start(signals.SetupSignalHandler())
+	if err != nil {
+		log.G(ctx).WithError(err).Error("failed to start manager")
 	}
 }

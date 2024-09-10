@@ -93,8 +93,16 @@ var _ = Describe("Module Lifecycle Test", func() {
 			}, time.Second*20, time.Second).Should(BeTrue())
 		})
 
+		It("invalid message should skip by mqtt tunnel", func() {
+			// invalid msg payload
+			mockBase.SendInvalidMessage()
+			mockBase.SendFailedMessage()
+			mockBase.SendTimeoutMessage()
+			time.Sleep(time.Second)
+		})
+
 		It("base offline with deactive message and finally exit", func() {
-			mockBase.SetCurrState("DEACTIVATED")
+			mockBase.Exit()
 			Eventually(func() bool {
 				vnode := &v1.Node{}
 				err := k8sClient.Get(ctx, types.NamespacedName{

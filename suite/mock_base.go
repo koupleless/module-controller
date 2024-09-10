@@ -70,32 +70,19 @@ func (b *MockBase) Start(ctx context.Context) error {
 		return err
 	}
 
-	err = b.client.Connect()
-	if err != nil {
-		return err
-	}
+	b.client.Connect()
 
 	go func() {
-		ticker := time.NewTicker(2 * time.Minute)
 		if b.Reachable {
 			// send heart beat message
 			b.client.Pub(fmt.Sprintf("koupleless_%s/%s/base/heart", b.Env, b.ID), 1, b.getHeartBeatMsg())
-		}
-		for range ticker.C {
-			select {
-			case <-ctx.Done():
-				return
-			default:
-			}
-			if b.Reachable {
-				// send heart beat message
-				b.client.Pub(fmt.Sprintf("koupleless_%s/%s/base/heart", b.Env, b.ID), 1, b.getHeartBeatMsg())
-			}
 		}
 	}()
 
 	select {
 	case <-b.exit:
+		b.SetCurrState("DEACTIVATED")
+		b.client.Disconnect()
 	case <-ctx.Done():
 	}
 	return nil
@@ -215,6 +202,25 @@ func (b *MockBase) processUnInstallBiz(msg []byte) {
 	request := ark.BizModel{}
 	json.Unmarshal(msg, &request)
 	delete(b.BizInfos, getBizIdentity(request))
+}
+
+func (b *MockBase) SendInvalidMessage() {
+	b.client.Pub(fmt.Sprintf("koupleless_%s/%s/base/health", b.Env, b.ID), 1, []byte(""))
+	b.client.Pub(fmt.Sprintf("koupleless_%s/%s/base/biz", b.Env, b.ID), 1, []byte(""))
+	b.client.Pub(fmt.Sprintf("koupleless_%s/%s/base/heart", b.Env, b.ID), 1, []byte(""))
+	b.client.Pub(fmt.Sprintf("koupleless_%s/%s/base/queryBaseline", b.Env, b.ID), 1, []byte(""))
+}
+
+func (b *MockBase) SendTimeoutMessage() {
+	b.client.Pub(fmt.Sprintf("koupleless_%s/%s/base/health", b.Env, b.ID), 1, []byte("{\"publishTimestamp\":0}"))
+	b.client.Pub(fmt.Sprintf("koupleless_%s/%s/base/biz", b.Env, b.ID), 1, []byte("{\"publishTimestamp\":0}"))
+	b.client.Pub(fmt.Sprintf("koupleless_%s/%s/base/heart", b.Env, b.ID), 1, []byte("{\"publishTimestamp\":0}"))
+	b.client.Pub(fmt.Sprintf("koupleless_%s/%s/base/queryBaseline", b.Env, b.ID), 1, []byte("{\"publishTimestamp\":0}"))
+}
+
+func (b *MockBase) SendFailedMessage() {
+	b.client.Pub(fmt.Sprintf("koupleless_%s/%s/base/health", b.Env, b.ID), 1, []byte(fmt.Sprintf("{\"publishTimestamp\":%d, \"data\" : {\"code\":\"\"}}", time.Now().UnixMilli())))
+	b.client.Pub(fmt.Sprintf("koupleless_%s/%s/base/biz", b.Env, b.ID), 1, []byte(fmt.Sprintf("{\"publishTimestamp\":%d, \"data\" : {\"code\":\"\"}}", time.Now().UnixMilli())))
 }
 
 func (b *MockBase) SetBizState(bizIdentity, state, reason, message string) {

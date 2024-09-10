@@ -47,36 +47,23 @@ func (m *MqttTunnel) GetContainerUniqueKey(_ string, container *corev1.Container
 }
 
 func (m *MqttTunnel) OnNodeStart(ctx context.Context, nodeID string) {
-	err := m.mqttClient.Sub(fmt.Sprintf(model.BaseHealthTopic, m.env, nodeID), mqtt.Qos1, m.healthMsgCallback)
-	if err != nil {
-		log.G(ctx).Error(err.Error())
-	}
-	err = m.mqttClient.Sub(fmt.Sprintf(model.BaseBizTopic, m.env, nodeID), mqtt.Qos1, m.bizMsgCallback)
-	if err != nil {
-		log.G(ctx).Error(err.Error())
-	}
-	err = m.mqttClient.Sub(fmt.Sprintf(model.BaseBizOperationResponseTopic, m.env, nodeID), mqtt.Qos1, m.bizOperationResponseCallback)
-	if err != nil {
-		log.G(ctx).Error(err.Error())
-	}
+	m.mqttClient.Sub(fmt.Sprintf(model.BaseHealthTopic, m.env, nodeID), mqtt.Qos1, m.healthMsgCallback)
+
+	m.mqttClient.Sub(fmt.Sprintf(model.BaseBizTopic, m.env, nodeID), mqtt.Qos1, m.bizMsgCallback)
+
+	m.mqttClient.Sub(fmt.Sprintf(model.BaseBizOperationResponseTopic, m.env, nodeID), mqtt.Qos1, m.bizOperationResponseCallback)
 	m.Lock()
 	defer m.Unlock()
 	m.onlineNode[nodeID] = true
 }
 
 func (m *MqttTunnel) OnNodeStop(ctx context.Context, nodeID string) {
-	err := m.mqttClient.UnSub(fmt.Sprintf(model.BaseHealthTopic, m.env, nodeID))
-	if err != nil {
-		log.G(ctx).Error(err.Error())
-	}
-	err = m.mqttClient.UnSub(fmt.Sprintf(model.BaseBizTopic, m.env, nodeID))
-	if err != nil {
-		log.G(ctx).Error(err.Error())
-	}
-	err = m.mqttClient.UnSub(fmt.Sprintf(model.BaseBizOperationResponseTopic, m.env, nodeID))
-	if err != nil {
-		log.G(ctx).Error(err.Error())
-	}
+	m.mqttClient.UnSub(fmt.Sprintf(model.BaseHealthTopic, m.env, nodeID))
+
+	m.mqttClient.UnSub(fmt.Sprintf(model.BaseBizTopic, m.env, nodeID))
+
+	m.mqttClient.UnSub(fmt.Sprintf(model.BaseBizOperationResponseTopic, m.env, nodeID))
+
 	m.Lock()
 	defer m.Unlock()
 	delete(m.onlineNode, nodeID)
@@ -163,7 +150,7 @@ func (m *MqttTunnel) queryBaselineMsgCallback(_ paho.Client, msg paho.Message) {
 	var data model.ArkMqttMsg[ark.MasterBizInfo]
 	err := json.Unmarshal(msg.Payload(), &data)
 	if err != nil {
-		logrus.Errorf("Error unmarshalling heart beat data: %v", err)
+		logrus.Errorf("Error unmarshalling queryBaseline data: %v", err)
 		return
 	}
 	if utils.Expired(data.PublishTimestamp, 1000*10) {

@@ -38,7 +38,7 @@ var _ = Describe("Base Lifecycle Test", func() {
 		})
 
 		It("base offline with deactive message and finally exit", func() {
-			mockBase.SetCurrState("DEACTIVATED")
+			mockBase.Exit()
 			Eventually(func() bool {
 				vnode := &v1.Node{}
 				err := k8sClient.Get(ctx, types.NamespacedName{
