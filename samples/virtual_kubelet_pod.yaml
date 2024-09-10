@@ -1,0 +1,27 @@
+apiVersion: v1
+kind: Pod
+metadata:
+  name: virtual-kubelet
+  labels:
+    app: virtual-kubelet
+spec:
+  serviceAccountName: virtual-kubelet
+  containers:
+    - name: vk
+      image: serverless-registry.cn-shanghai.cr.aliyuncs.com/opensource/release/virtual-kubelet:0.0.1
+      imagePullPolicy: Always
+      resources:
+        limits:
+          cpu: "1000m"
+          memory: "400Mi"
+      env:
+        - name: MQTT_BROKER # mqtt broker url
+          value: YOUR_MQTT_BROKER_ENDPOINT
+        - name: MQTT_PORT # mqtt port
+          value: YOUR_MQTT_PORT
+        - name: MQTT_USERNAME # mqtt username
+          value: YOUR_MQTT_USERNAME
+        - name: MQTT_PASSWORD # mqtt password
+          value: YOUR_MQTT_PASSWORD
+        - name: MQTT_CLIENT_PREFIX # mqtt client prefix
+          value: YOUR_MQTT_CLIENT_PREFIX
