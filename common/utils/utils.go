@@ -92,10 +92,10 @@ func TranslateHealthDataToNodeStatus(data ark.HealthData) vkModel.NodeStatusData
 	}
 }
 
-func TranslateHeartBeatDataToBaselineQuery(data ark.MasterBizInfo) model.QueryBaselineRequest {
+func TranslateHeartBeatDataToBaselineQuery(data model.Metadata) model.QueryBaselineRequest {
 	return model.QueryBaselineRequest{
-		Name:    data.BizName,
-		Version: data.BizVersion,
+		Name:    data.Name,
+		Version: data.Version,
 		CustomLabels: map[string]string{
 			model.LabelKeyOfTechStack: "java",
 		},

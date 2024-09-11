@@ -3,6 +3,8 @@ package suite
 import (
 	"context"
 	model2 "github.com/koupleless/module_controller/common/model"
+	"github.com/koupleless/module_controller/controller/module_deployment_controller"
+	"github.com/koupleless/module_controller/module_tunnels"
 	"github.com/koupleless/module_controller/module_tunnels/koupleless_mqtt_tunnel"
 	"github.com/koupleless/virtual-kubelet/common/log"
 	"github.com/koupleless/virtual-kubelet/controller/vnode_controller"
@@ -101,8 +103,16 @@ var _ = BeforeSuite(func() {
 		Env:          env,
 		VPodIdentity: model2.ComponentModule,
 	}, tunnels)
+	Expect(err).ToNot(HaveOccurred())
 
 	err = vnodeController.SetupWithManager(ctx, k8sManager)
+
+	moduleDeploymentController, err := module_deployment_controller.NewModuleDeploymentController(env, []module_tunnels.ModuleTunnel{
+		&tl,
+	})
+	Expect(err).ToNot(HaveOccurred())
+
+	err = moduleDeploymentController.SetupWithManager(ctx, k8sManager)
 
 	Expect(err).ToNot(HaveOccurred())
 

@@ -3,7 +3,6 @@ package model
 import "github.com/koupleless/virtual-kubelet/model"
 
 const (
-	TrackEventModuleSchedule                  = "ModuleSchedule"
 	TrackEventVPodPeerDeploymentReplicaModify = "PeerDeploymentReplicaModify"
 )
 
@@ -25,7 +24,6 @@ const (
 
 const (
 	CodeKubernetesOperationFailed model.ErrorCode = "00003"
-	CodeVPodScheduleFailed        model.ErrorCode = "01004"
 )
 
 const (

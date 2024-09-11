@@ -2,7 +2,6 @@ package model
 
 import (
 	"github.com/koupleless/arkctl/v1/service/ark"
-	v1 "k8s.io/api/core/v1"
 )
 
 // ArkMqttMsg is the response of mqtt message payload.
@@ -41,7 +40,6 @@ type QueryBaselineRequest struct {
 	Name         string            `json:"name"`
 	Version      string            `json:"version"`
 	CustomLabels map[string]string `json:"customLabels"`
-	CustomTaints []v1.Taint        `json:"customTaints"`
 }
 
 type BuildModuleDeploymentControllerConfig struct {

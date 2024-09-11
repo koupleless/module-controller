@@ -20,9 +20,8 @@ type MockBase struct {
 	CurrState string
 	Metadata  model.Metadata
 	BizInfos  map[string]ark.ArkBizInfo
+	Baseline  []ark.BizModel
 	client    *mqtt.Client
-
-	Reachable bool
 
 	exit chan struct{}
 }
@@ -36,14 +35,9 @@ func NewMockBase(name, version, id, env string) *MockBase {
 			Name:    name,
 			Version: version,
 		},
-		Reachable: true,
-		BizInfos:  make(map[string]ark.ArkBizInfo),
-		exit:      make(chan struct{}),
+		BizInfos: make(map[string]ark.ArkBizInfo),
+		exit:     make(chan struct{}),
 	}
-}
-
-func (b *MockBase) setReachable(reachable bool) {
-	b.Reachable = reachable
 }
 
 func (b *MockBase) Exit() {
@@ -64,6 +58,7 @@ func (b *MockBase) Start(ctx context.Context) error {
 		Password: "",
 		OnConnectHandler: func(client paho.Client) {
 			client.Subscribe(fmt.Sprintf("koupleless_%s/%s/+", b.Env, b.ID), 1, b.processCommand)
+			client.Subscribe(fmt.Sprintf("koupleless_%s/%s/base/baseline", b.Env, b.ID), 1, b.processBaseline)
 		},
 	})
 	if err != nil {
@@ -73,10 +68,8 @@ func (b *MockBase) Start(ctx context.Context) error {
 	b.client.Connect()
 
 	go func() {
-		if b.Reachable {
-			// send heart beat message
-			b.client.Pub(fmt.Sprintf("koupleless_%s/%s/base/heart", b.Env, b.ID), 1, b.getHeartBeatMsg())
-		}
+		// send heart beat message
+		b.client.Pub(fmt.Sprintf("koupleless_%s/%s/base/heart", b.Env, b.ID), 1, b.getHeartBeatMsg())
 	}()
 
 	select {
@@ -99,8 +92,11 @@ func (b *MockBase) getHeartBeatMsg() []byte {
 		PublishTimestamp: time.Now().UnixMilli(),
 		Data: model.HeartBeatData{
 			State:         b.CurrState,
-			MasterBizInfo: model.Metadata{},
-			NetworkInfo:   model.NetworkInfo{},
+			MasterBizInfo: b.Metadata,
+			NetworkInfo: model.NetworkInfo{
+				LocalIP:       "127.0.0.1",
+				LocalHostName: "localhost",
+			},
 		},
 	}
 	msgBytes, _ := json.Marshal(msg)
@@ -173,10 +169,24 @@ func (b *MockBase) processCommand(_ paho.Client, msg paho.Message) {
 	}
 }
 
-func (b *MockBase) processHealth() {
-	if b.Reachable {
-		b.client.Pub(fmt.Sprintf("koupleless_%s/%s/base/health", b.Env, b.ID), 1, b.getHealthMsg())
+func (b *MockBase) processBaseline(_ paho.Client, msg paho.Message) {
+	defer msg.Ack()
+	var data []ark.BizModel
+	json.Unmarshal(msg.Payload(), &data)
+	for _, bizModel := range data {
+		identity := getBizIdentity(bizModel)
+		b.BizInfos[identity] = ark.ArkBizInfo{
+			BizName:         bizModel.BizName,
+			BizState:        "ACTIVATED",
+			BizVersion:      bizModel.BizVersion,
+			BizStateRecords: []ark.ArkBizStateRecord{},
+		}
 	}
+	b.Baseline = data
+}
+
+func (b *MockBase) processHealth() {
+	b.client.Pub(fmt.Sprintf("koupleless_%s/%s/base/health", b.Env, b.ID), 1, b.getHealthMsg())
 }
 
 func (b *MockBase) processInstallBiz(msg []byte) {
@@ -223,6 +233,14 @@ func (b *MockBase) SendFailedMessage() {
 	b.client.Pub(fmt.Sprintf("koupleless_%s/%s/base/biz", b.Env, b.ID), 1, []byte(fmt.Sprintf("{\"publishTimestamp\":%d, \"data\" : {\"code\":\"\"}}", time.Now().UnixMilli())))
 }
 
+func (b *MockBase) QueryBaseline() {
+	queryBaselineBytes, _ := json.Marshal(model.ArkMqttMsg[model.Metadata]{
+		PublishTimestamp: time.Now().UnixMilli(),
+		Data:             b.Metadata,
+	})
+	b.client.Pub(fmt.Sprintf("koupleless_%s/%s/base/queryBaseline", b.Env, b.ID), 1, queryBaselineBytes)
+}
+
 func (b *MockBase) SetBizState(bizIdentity, state, reason, message string) {
 	b.Lock()
 	defer b.Unlock()
@@ -255,16 +273,12 @@ func (b *MockBase) SetBizState(bizIdentity, state, reason, message string) {
 			},
 		}
 		respBytes, _ := json.Marshal(resp)
-		if b.Reachable {
-			b.client.Pub(fmt.Sprintf(model.BaseBizOperationResponseTopic, b.Env, b.ID), 1, respBytes)
-		}
+		b.client.Pub(fmt.Sprintf(model.BaseBizOperationResponseTopic, b.Env, b.ID), 1, respBytes)
 	}
 }
 
 func (b *MockBase) processQueryAllBiz() {
-	if b.Reachable {
-		b.client.Pub(fmt.Sprintf("koupleless_%s/%s/base/biz", b.Env, b.ID), 1, b.getQueryAllBizMsg())
-	}
+	b.client.Pub(fmt.Sprintf("koupleless_%s/%s/base/biz", b.Env, b.ID), 1, b.getQueryAllBizMsg())
 }
 
 func getBizIdentity(bizModel ark.BizModel) string {

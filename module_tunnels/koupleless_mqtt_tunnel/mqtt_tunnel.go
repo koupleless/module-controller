@@ -147,7 +147,7 @@ func (m *MqttTunnel) heartBeatMsgCallback(_ paho.Client, msg paho.Message) {
 func (m *MqttTunnel) queryBaselineMsgCallback(_ paho.Client, msg paho.Message) {
 	defer msg.Ack()
 	nodeID := utils.GetBaseIDFromTopic(msg.Topic())
-	var data model.ArkMqttMsg[ark.MasterBizInfo]
+	var data model.ArkMqttMsg[model.Metadata]
 	err := json.Unmarshal(msg.Payload(), &data)
 	if err != nil {
 		logrus.Errorf("Error unmarshalling queryBaseline data: %v", err)
@@ -159,7 +159,11 @@ func (m *MqttTunnel) queryBaselineMsgCallback(_ paho.Client, msg paho.Message) {
 	if m.queryBaseline != nil {
 		baseline := m.queryBaseline(utils.TranslateHeartBeatDataToBaselineQuery(data.Data))
 		go func() {
-			baselineBytes, _ := json.Marshal(baseline)
+			baselineBizs := make([]ark.BizModel, 0)
+			for _, container := range baseline {
+				baselineBizs = append(baselineBizs, utils.TranslateCoreV1ContainerToBizModel(&container))
+			}
+			baselineBytes, _ := json.Marshal(baselineBizs)
 			err = m.mqttClient.Pub(utils.FormatBaselineResponseTopic(m.env, nodeID), mqtt.Qos1, baselineBytes)
 			if err != nil {
 				logrus.WithError(err).Errorf("Error publishing baseline response data")
