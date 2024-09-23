@@ -1,0 +1,54 @@
+apiVersion: apps/v1  # 指定api版本，此值必须在kubectl api-versions中
+kind: DaemonSet  # 指定创建资源的角色/类型
+metadata:  # 资源的元数据/属性
+  name: test-module-daemon-set  # 资源的名字，在同一个namespace中必须唯一
+  namespace: default # 部署在哪个namespace中
+  labels:  # 设定资源的标签
+    virtual-kubelet.koupleless.io/env: test
+spec: # 资源规范字段
+  revisionHistoryLimit: 3 # 保留历史版本
+  selector: # 选择器
+    matchLabels: # 匹配标签
+      module.koupleless.io/name: biz1
+      module.koupleless.io/version: 0.0.1
+  updateStrategy: # 策略
+    type: RollingUpdate # 滚动更新策略
+    rollingUpdate: # 滚动更新
+      maxUnavailable: 30% # 示在更新过程中能够进入不可用状态的 Pod 的最大值，可以为百分比，也可以为整数
+  template: # 模版
+    metadata: # 资源的元数据/属性
+      labels: # 设定资源的标签
+        virtual-kubelet.koupleless.io/component: module # 必要，声明pod的类型，用于module controller管理
+    spec: # 资源规范字段
+      containers:
+        - name: biz1
+          image: https://serverless-opensource.oss-cn-shanghai.aliyuncs.com/module-packages/test_modules/biz1-0.0.1-ark-biz.jar
+          env:
+            - name: BIZ_VERSION
+              value: 0.0.1
+      affinity:
+        nodeAffinity:
+          requiredDuringSchedulingIgnoredDuringExecution:
+            nodeSelectorTerms: # 基座node选择
+              - matchExpressions:
+                  - key: base.koupleless.io/stack
+                    operator: In
+                    values:
+                      - java
+                  - key: vnode.koupleless.io/version
+                    operator: In
+                    values:
+                      - 1.0.0 # 模块可能只能被调度到一些特殊版本的 node 上，如有这种限制，则必须有这个字段。
+                  - key: vnode.koupleless.io/name
+                    operator: In
+                    values:
+                      - base  # 模块可能只能被调度到一些特殊版本的 node 上，如有这种限制，则必须有这个字段。
+      tolerations:
+        - key: "schedule.koupleless.io/virtual-node" # 确保模块能够调度到基座node上
+          operator: "Equal"
+          value: "True"
+          effect: "NoExecute"
+        - key: "schedule.koupleless.io/node-env" # 确保模块能够调度到特定环境的基座node上，这里Virtual Kubelet使用taint对env做了强管控，以实现更强的隔离能力
+          operator: "Equal"
+          value: "test"
+          effect: "NoExecute"

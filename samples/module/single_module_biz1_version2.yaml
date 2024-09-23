@@ -1,0 +1,39 @@
+apiVersion: v1
+kind: Pod
+metadata:
+  name: test-single-module-biz1-version2
+  labels:
+    virtual-kubelet.koupleless.io/component: module # 必要，声明pod的类型，用于module controller管理
+spec:
+  containers:
+    - name: biz1
+      image: https://serverless-opensource.oss-cn-shanghai.aliyuncs.com/module-packages/stable/biz1-web-single-host-0.0.2-SNAPSHOT-ark-biz.jar
+      env:
+        - name: BIZ_VERSION
+          value: 0.0.2-SNAPSHOT
+  affinity:
+    nodeAffinity:
+      requiredDuringSchedulingIgnoredDuringExecution:
+        nodeSelectorTerms: # 基座node选择
+          - matchExpressions:
+              - key: base.koupleless.io/stack
+                operator: In
+                values:
+                  - java
+              - key: vnode.koupleless.io/version
+                operator: In
+                values:
+                  - 1.0.0 # 模块可能只能被调度到一些特殊版本的 node 上，如有这种限制，则必须有这个字段。
+              - key: vnode.koupleless.io/name
+                operator: In
+                values:
+                  - base  # 模块可能只能被调度到一些特殊版本的 node 上，如有这种限制，则必须有这个字段。
+  tolerations:
+    - key: "schedule.koupleless.io/virtual-node" # 确保模块能够调度到基座node上
+      operator: "Equal"
+      value: "True"
+      effect: "NoExecute"
+    - key: "schedule.koupleless.io/node-env" # 确保模块能够调度到特定环境的基座node上，这里Virtual Kubelet使用taint对env做了强管控，以实现更强的隔离能力
+      operator: "Equal"
+      value: "test"
+      effect: "NoExecute"

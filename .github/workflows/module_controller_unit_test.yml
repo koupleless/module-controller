@@ -27,7 +27,7 @@ jobs:
       - name: Set up go
         uses: actions/setup-go@v4
         with:
-          go-version: '1.20.5'
+          go-version: '1.22.4'
           cache-dependency-path: ${{ env.WORK_DIR }}/go.sum
 
       - name: Run go mod
@@ -36,6 +36,8 @@ jobs:
       - name: Test
         run: make test
 
-      #  https://about.codecov.io/blog/getting-started-with-code-coverage-for-golang/
-      - name: Upload coverage to CodeCov
-        uses: codecov/codecov-action@v3
+      - name: Upload coverage reports to Codecov
+        uses: codecov/codecov-action@v4.0.1
+        with:
+          token: ${{ secrets.CODECOV_TOKEN }}
+          slug: koupleless/module-controller
