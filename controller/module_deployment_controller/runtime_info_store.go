@@ -326,7 +326,7 @@ func getDeploymentMatchLabels(dep appsv1.Deployment) (eqLabels, neLabels map[str
 					if !has {
 						neLabels[expressions.Key] = neValues
 					} else {
-						neLabels[expressions.Key] = intersection(oldValues, neValues)
+						neLabels[expressions.Key] = union(oldValues, neValues)
 					}
 				}
 			}

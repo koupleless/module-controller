@@ -127,23 +127,25 @@ func (m *MqttTunnel) Start(ctx context.Context, clientID, env string) (err error
 	}
 
 	go func() {
-		m.Cache.WaitForCacheSync(ctx)
-		vkUtils.TimedTaskWithInterval(ctx, time.Minute, func(ctx context.Context) {
-			nodeList := corev1.NodeList{}
-			envRequirement, _ := labels.NewRequirement(vkModel.LabelKeyOfEnv, selection.In, []string{m.env})
-			componentRequirement, _ := labels.NewRequirement(vkModel.LabelKeyOfComponent, selection.In, []string{vkModel.ComponentVNode})
-			m.Client.List(ctx, &nodeList, &client.ListOptions{
-				LabelSelector: labels.NewSelector().Add(*envRequirement, *componentRequirement),
-			})
-			for _, node := range nodeList.Items {
-				for _, condition := range node.Status.Conditions {
-					if condition.Type == corev1.NodeReady && condition.Status != corev1.ConditionTrue {
-						// base not ready, delete from api server
-						m.Client.Delete(ctx, &node)
+		if m.Cache != nil {
+			m.Cache.WaitForCacheSync(ctx)
+			vkUtils.TimedTaskWithInterval(ctx, time.Minute, func(ctx context.Context) {
+				nodeList := corev1.NodeList{}
+				envRequirement, _ := labels.NewRequirement(vkModel.LabelKeyOfEnv, selection.In, []string{m.env})
+				componentRequirement, _ := labels.NewRequirement(vkModel.LabelKeyOfComponent, selection.In, []string{vkModel.ComponentVNode})
+				m.Client.List(ctx, &nodeList, &client.ListOptions{
+					LabelSelector: labels.NewSelector().Add(*envRequirement, *componentRequirement),
+				})
+				for _, node := range nodeList.Items {
+					for _, condition := range node.Status.Conditions {
+						if condition.Type == corev1.NodeReady && condition.Status != corev1.ConditionTrue {
+							// base not ready, delete from api server
+							m.Client.Delete(ctx, &node)
+						}
 					}
 				}
-			}
-		})
+			})
+		}
 	}()
 
 	go func() {
