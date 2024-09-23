@@ -18,7 +18,10 @@ import (
 	"context"
 	"github.com/google/uuid"
 	"github.com/koupleless/module_controller/common/model"
+	"github.com/koupleless/module_controller/controller/module_deployment_controller"
+	"github.com/koupleless/module_controller/module_tunnels"
 	"github.com/koupleless/module_controller/module_tunnels/koupleless_mqtt_tunnel"
+	"github.com/koupleless/module_controller/report_server"
 	"github.com/koupleless/virtual-kubelet/common/log"
 	logruslogger "github.com/koupleless/virtual-kubelet/common/log/logrus"
 	"github.com/koupleless/virtual-kubelet/common/trace"
@@ -48,6 +51,8 @@ func main() {
 		cancel()
 	}()
 
+	go report_server.InitReportServer()
+
 	log.L = logruslogger.FromLogrus(logrus.NewEntry(logrus.StandardLogger()))
 	trace.T = opencensus.Adapter{}
 
@@ -75,8 +80,9 @@ func main() {
 
 	tracker.SetTracker(&tracker.DefaultTracker{})
 
-	tunnels := []tunnel.Tunnel{
-		&koupleless_mqtt_tunnel.MqttTunnel{},
+	tl := &koupleless_mqtt_tunnel.MqttTunnel{
+		Cache:  mgr.GetCache(),
+		Client: mgr.GetClient(),
 	}
 
 	rcc := vkModel.BuildVNodeControllerConfig{
@@ -85,7 +91,9 @@ func main() {
 		VPodIdentity: model.ComponentModule,
 	}
 
-	vc, err := vnode_controller.NewVNodeController(&rcc, tunnels)
+	vc, err := vnode_controller.NewVNodeController(&rcc, []tunnel.Tunnel{
+		tl,
+	})
 	if err != nil {
 		log.G(ctx).Error(err, "unable to set up VNodeController")
 		return
@@ -97,13 +105,29 @@ func main() {
 		return
 	}
 
-	for _, t := range tunnels {
-		err = t.Start(ctx, clientID, env)
+	enableModuleDeploymentController := utils.GetEnv("ENABLE_MODULE_DEPLOYMENT_CONTROLLER", "false")
+
+	if enableModuleDeploymentController == "true" {
+		mdc, err := module_deployment_controller.NewModuleDeploymentController(env, []module_tunnels.ModuleTunnel{
+			tl,
+		})
 		if err != nil {
-			log.G(ctx).WithError(err).Error("failed to start tunnel", t.Key())
-		} else {
-			log.G(ctx).Info("Tunnel started: ", t.Key())
+			log.G(ctx).Error(err, "unable to set up module_deployment_controller")
+			return
 		}
+
+		err = mdc.SetupWithManager(ctx, mgr)
+		if err != nil {
+			log.G(ctx).WithError(err).Error("unable to setup vnode controller")
+			return
+		}
+	}
+
+	err = tl.Start(ctx, clientID, env)
+	if err != nil {
+		log.G(ctx).WithError(err).Error("failed to start tunnel", tl.Key())
+	} else {
+		log.G(ctx).Info("Tunnel started: ", tl.Key())
 	}
 
 	log.G(ctx).Info("Module controller running")

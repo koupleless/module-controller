@@ -4,7 +4,9 @@ metadata:  # 资源的元数据/属性
   name: test-module-deployment  # 资源的名字，在同一个namespace中必须唯一
   namespace: default # 部署在哪个namespace中
   labels:  # 设定资源的标签
-    module-controller.koupleless.io/component: module-deployment # 资源类型标记， 用于module controller管理
+    virtual-kubelet.koupleless.io/component: module-deployment # 资源类型标记， 用于module controller管理
+    virtual-kubelet.koupleless.io/env: test
+    module-controller.koupleless.io/strategy: peer
 spec: # 资源规范字段
   replicas: 1
   revisionHistoryLimit: 3 # 保留历史版本
@@ -67,5 +69,5 @@ spec: # 资源规范字段
           effect: "NoExecute"
         - key: "schedule.koupleless.io/node-env" # 确保模块能够调度到特定环境的基座node上，这里Virtual Kubelet使用taint对env做了强管控，以实现更强的隔离能力
           operator: "Equal"
-          value: "dev"
+          value: "test"
           effect: "NoExecute"

@@ -311,13 +311,23 @@ func getDeploymentMatchLabels(dep appsv1.Deployment) (eqLabels, neLabels map[str
 					for _, value := range expressions.Values {
 						eqValues[value] = nil
 					}
-					eqLabels[expressions.Key] = intersection(eqLabels[expressions.Key], eqValues)
+					oldValues, has := eqLabels[expressions.Key]
+					if !has {
+						eqLabels[expressions.Key] = eqValues
+					} else {
+						eqLabels[expressions.Key] = intersection(oldValues, eqValues)
+					}
 				} else if expressions.Operator == corev1.NodeSelectorOpNotIn || expressions.Operator == corev1.NodeSelectorOpDoesNotExist {
 					neValues := make(map[string]interface{})
 					for _, value := range expressions.Values {
 						neValues[value] = nil
 					}
-					neLabels[expressions.Key] = union(neLabels[expressions.Key], neValues)
+					oldValues, has := neLabels[expressions.Key]
+					if !has {
+						neLabels[expressions.Key] = neValues
+					} else {
+						neLabels[expressions.Key] = intersection(oldValues, neValues)
+					}
 				}
 			}
 		}

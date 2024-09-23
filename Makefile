@@ -26,7 +26,7 @@ test: fmt vet envtest ## Run tests.
 
 .PHONY: buildx
 buildx: fmt vet
-	docker buildx build --platform linux/aarch64 -t serverless-registry.cn-shanghai.cr.aliyuncs.com/opensource/test/module_controller:latest .
+	docker buildx build --platform linux/amd64 -t serverless-registry.cn-shanghai.cr.aliyuncs.com/opensource/test/module_controller:latest .
 
 .PHONY: build
 build: fmt vet

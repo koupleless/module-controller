@@ -8,7 +8,7 @@ require (
 	github.com/eclipse/paho.mqtt.golang v1.5.0
 	github.com/google/uuid v1.6.0
 	github.com/koupleless/arkctl v0.2.2-0.20240702132710-aba4f6ced448
-	github.com/koupleless/virtual-kubelet v0.1.1-0.20240905074001-df0ce8aedc2b
+	github.com/koupleless/virtual-kubelet v0.1.1-0.20240923041130-b8ceb1901dd8
 	github.com/onsi/ginkgo/v2 v2.19.0
 	github.com/onsi/gomega v1.33.1
 	github.com/sirupsen/logrus v1.9.3

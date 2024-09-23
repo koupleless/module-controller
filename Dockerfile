@@ -13,10 +13,10 @@ RUN go mod download
 
 # Copy the go source
 COPY cmd/ cmd/
-COPY inspection/ inspection/
 COPY common/ common/
 COPY controller/ controller/
 COPY module_tunnels/ module_tunnels/
+COPY report_server/ report_server/
 
 # Build
 # the GOARCH has not a default value to allow the binary be built according to the host where the command
@@ -29,8 +29,10 @@ RUN CGO_ENABLED=0 GOOS=${TARGETOS:-linux} GOARCH=${TARGETARCH} go build -a -o mo
 # Refer to https://github.com/GoogleContainerTools/distroless for more details
 FROM gcr.io/distroless/static:nonroot
 WORKDIR /
+COPY config/ config/
 COPY --from=builder /workspace/module_controller .
 
 EXPOSE 9090
+EXPOSE 8080
 
 ENTRYPOINT ["./module_controller", "--enable-mqtt-tunnel=true", "--enable-prometheus=true", "--enable-tracker=true", "--enable-inspection=true"]

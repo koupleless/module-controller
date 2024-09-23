@@ -4,8 +4,6 @@ metadata:
   name: test-biz-combine-koupleless
   labels:
     virtual-kubelet.koupleless.io/component: module # 必要，声明pod的类型，用于module controller管理
-    module.koupleless.io/module0: 0.1.0
-    module.koupleless.io/module1: 0.1.0
 spec:
   containers:
     - name: biz2
@@ -21,22 +19,35 @@ spec:
   affinity:
     nodeAffinity:
       requiredDuringSchedulingIgnoredDuringExecution:
-        nodeSelectorTerms:
+        nodeSelectorTerms: # 基座node选择
           - matchExpressions:
               - key: base.koupleless.io/stack
                 operator: In
                 values:
-                  - java # 多语言环境下可能有其他技术栈
+                  - java
               - key: vnode.koupleless.io/version
                 operator: In
                 values:
-                  - 1.0.0  # 模块可能只能被调度到一些特殊版本的 node 上，如有这种限制，则必须有这个字段。
+                  - 1.0.0 # 模块可能只能被调度到一些特殊版本的 node 上，如有这种限制，则必须有这个字段。
               - key: vnode.koupleless.io/name
                 operator: In
                 values:
-                  - spring-sample-base  # 模块可能只能被调度到一些特殊版本的 node 上，如有这种限制，则必须有这个字段。
+                  - base  # 模块可能只能被调度到一些特殊版本的 node 上，如有这种限制，则必须有这个字段。
+    podAntiAffinity:
+      requiredDuringSchedulingIgnoredDuringExecution:
+        - labelSelector:
+            matchExpressions:
+              - key: module.koupleless.io/name
+                operator: In
+                values:
+                  - biz1
+              - key: module.koupleless.io/version
+                operator: In
+                values:
+                  - 0.0.1
+          topologyKey: kubernetes.io/hostname
   tolerations:
-    - key: "schedule.koupleless.io/virtual-node"
+    - key: "schedule.koupleless.io/virtual-node" # 确保模块能够调度到基座node上
       operator: "Equal"
       value: "True"
       effect: "NoExecute"

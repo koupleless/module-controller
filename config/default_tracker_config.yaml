@@ -1,0 +1,4 @@
+logDir: "."
+reportLevel: "error" # value: debug/error, debug means success log will report too
+reportLinks:  # default tracker will send post requests with report data to every link
+  - "http://localhost:8080/log" # here is a test link

@@ -11,10 +11,15 @@ import (
 	"github.com/koupleless/module_controller/module_tunnels"
 	"github.com/koupleless/module_controller/module_tunnels/koupleless_mqtt_tunnel/mqtt"
 	"github.com/koupleless/virtual-kubelet/common/log"
+	vkUtils "github.com/koupleless/virtual-kubelet/common/utils"
 	vkModel "github.com/koupleless/virtual-kubelet/model"
 	"github.com/koupleless/virtual-kubelet/tunnel"
 	"github.com/sirupsen/logrus"
 	corev1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/labels"
+	"k8s.io/apimachinery/pkg/selection"
+	"sigs.k8s.io/controller-runtime/pkg/cache"
+	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sync"
 	"time"
 )
@@ -25,7 +30,9 @@ type MqttTunnel struct {
 	sync.Mutex
 
 	mqttClient *mqtt.Client
-	env        string
+	cache.Cache
+	client.Client
+	env string
 
 	ready bool
 
@@ -118,6 +125,26 @@ func (m *MqttTunnel) Start(ctx context.Context, clientID, env string) (err error
 		log.G(ctx).WithError(err).Error("mqtt connect error")
 		return
 	}
+
+	go func() {
+		m.Cache.WaitForCacheSync(ctx)
+		vkUtils.TimedTaskWithInterval(ctx, time.Minute, func(ctx context.Context) {
+			nodeList := corev1.NodeList{}
+			envRequirement, _ := labels.NewRequirement(vkModel.LabelKeyOfEnv, selection.In, []string{m.env})
+			componentRequirement, _ := labels.NewRequirement(vkModel.LabelKeyOfComponent, selection.In, []string{vkModel.ComponentVNode})
+			m.Client.List(ctx, &nodeList, &client.ListOptions{
+				LabelSelector: labels.NewSelector().Add(*envRequirement, *componentRequirement),
+			})
+			for _, node := range nodeList.Items {
+				for _, condition := range node.Status.Conditions {
+					if condition.Type == corev1.NodeReady && condition.Status != corev1.ConditionTrue {
+						// base not ready, delete from api server
+						m.Client.Delete(ctx, &node)
+					}
+				}
+			}
+		})
+	}()
 
 	go func() {
 		<-ctx.Done()
@@ -230,6 +257,9 @@ func (m *MqttTunnel) bizOperationResponseCallback(_ paho.Client, msg paho.Messag
 	containerState := vkModel.ContainerStateDeactivated
 	if data.Data.Response.Code == "SUCCESS" {
 		containerState = vkModel.ContainerStateActivated
+	} else {
+		// operation failed, log
+		logrus.Errorf("biz operation failed: %s\n%s\n%s", data.Data.Response.Message, data.Data.Response.ErrorStackTrace, data.Data.Response.Data.Message)
 	}
 
 	m.onOneBizDataArrived(nodeID, vkModel.ContainerStatusData{
