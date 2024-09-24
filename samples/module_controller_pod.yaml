@@ -27,3 +27,5 @@ spec:
           value: YOUR_MQTT_CLIENT_PREFIX
         - name: REPORT_HOOKS # error report hooks, only support dingTalk robot webhook
           value: YOUR_REPORT_HOOKS
+        - name: ENV
+          value: YOUR_ENV
