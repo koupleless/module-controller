@@ -112,7 +112,11 @@ github.com/koupleless/virtual-kubelet v0.1.1-0.20240923032529-9b813c8f7750 h1:ux
 github.com/koupleless/virtual-kubelet v0.1.1-0.20240923032529-9b813c8f7750/go.mod h1:W64xRKk/hDpGW6WaJdxtY9KQHg0YKHeilBRm0ARxni4=
 github.com/koupleless/virtual-kubelet v0.1.1-0.20240923041130-b8ceb1901dd8 h1:O2i6j2dvJfgE2Chrf9Y2gv8Miyo1vGtFrPFOfItwKiI=
 github.com/koupleless/virtual-kubelet v0.1.1-0.20240923041130-b8ceb1901dd8/go.mod h1:W64xRKk/hDpGW6WaJdxtY9KQHg0YKHeilBRm0ARxni4=
+github.com/koupleless/virtual-kubelet v0.1.1-0.20240924074746-0210732eca6a h1:fzqOVopXWgM/+7Jf0FoQ6vMXR4cME1TZo1i7MjJtP2Y=
+github.com/koupleless/virtual-kubelet v0.1.1-0.20240924074746-0210732eca6a/go.mod h1:W64xRKk/hDpGW6WaJdxtY9KQHg0YKHeilBRm0ARxni4=
 github.com/koupleless/virtual-kubelet v0.2.1/go.mod h1:W64xRKk/hDpGW6WaJdxtY9KQHg0YKHeilBRm0ARxni4=
+github.com/koupleless/virtual-kubelet v0.2.2 h1:PuLsNShfUh+iDUV1/RUHC4Onmzi+P+WfH3Zz4HLLMlo=
+github.com/koupleless/virtual-kubelet v0.2.2/go.mod h1:W64xRKk/hDpGW6WaJdxtY9KQHg0YKHeilBRm0ARxni4=
 github.com/kr/pretty v0.2.1/go.mod h1:ipq/a2n7PKx3OHsz4KJII5eveXtPO4qwEXGdVfWzfnI=
 github.com/kr/pretty v0.3.1 h1:flRD4NNwYAUpkphVc1HcthR4KEIFJ65n8Mw5qdRn3LE=
 github.com/kr/pretty v0.3.1/go.mod h1:hoEshYVHaxMs3cyo3Yncou5ZscifuDolrwPKZanG3xk=

@@ -35,4 +35,4 @@ COPY --from=builder /workspace/module_controller .
 EXPOSE 9090
 EXPOSE 8080
 
-ENTRYPOINT ["./module_controller", "--enable-mqtt-tunnel=true", "--enable-prometheus=true", "--enable-tracker=true", "--enable-inspection=true"]
+ENTRYPOINT ["./module_controller"]
