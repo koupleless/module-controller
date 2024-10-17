@@ -305,11 +305,6 @@ func (m *MqttTunnel) StartContainer(ctx context.Context, nodeID, _ string, conta
 	bizModel := utils.TranslateCoreV1ContainerToBizModel(container)
 	logger := log.G(ctx).WithField("bizName", bizModel.BizName).WithField("bizVersion", bizModel.BizVersion)
 	logger.Info("InstallModule")
-	//bizInfo := m.moduleCache.GetBizInfo(nodeID, utils.GetBizIdentity(bizModel.BizName, bizModel.BizVersion))
-	//if bizInfo != nil && bizInfo.BizState == "ACTIVATED" {
-	//	logger.Info("BizActivated")
-	//	return nil
-	//}
 	installBizRequestBytes, _ := json.Marshal(bizModel)
 	return m.mqttClient.Pub(utils.FormatArkletCommandTopic(m.env, nodeID, model.CommandInstallBiz), mqtt.Qos0, installBizRequestBytes)
 }
@@ -319,10 +314,5 @@ func (m *MqttTunnel) ShutdownContainer(ctx context.Context, nodeID, _ string, co
 	unInstallBizRequestBytes, _ := json.Marshal(bizModel)
 	logger := log.G(ctx).WithField("bizName", bizModel.BizName).WithField("bizVersion", bizModel.BizVersion)
 	logger.Info("UninstallModule")
-	//bizInfo := m.moduleCache.GetBizInfo(nodeID, utils.GetBizIdentity(bizModel.BizName, bizModel.BizVersion))
-	//if bizInfo == nil {
-	//	logger.Info("BizModelNotExist")
-	//	return nil
-	//}
 	return m.mqttClient.Pub(utils.FormatArkletCommandTopic(m.env, nodeID, model.CommandUnInstallBiz), mqtt.Qos0, unInstallBizRequestBytes)
 }
