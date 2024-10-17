@@ -45,3 +45,7 @@ type QueryBaselineRequest struct {
 type BuildModuleDeploymentControllerConfig struct {
 	Env string `json:"env"`
 }
+
+type ArkSimpleAllBizInfoData []ArkSimpleBizInfoData
+
+type ArkSimpleBizInfoData []string

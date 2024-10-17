@@ -16,8 +16,7 @@ import (
 	"github.com/koupleless/virtual-kubelet/tunnel"
 	"github.com/sirupsen/logrus"
 	corev1 "k8s.io/api/core/v1"
-	"k8s.io/apimachinery/pkg/labels"
-	"k8s.io/apimachinery/pkg/selection"
+	"k8s.io/apimachinery/pkg/api/errors"
 	"sigs.k8s.io/controller-runtime/pkg/cache"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sync"
@@ -56,7 +55,9 @@ func (m *MqttTunnel) GetContainerUniqueKey(_ string, container *corev1.Container
 func (m *MqttTunnel) OnNodeStart(ctx context.Context, nodeID string) {
 	m.mqttClient.Sub(fmt.Sprintf(model.BaseHealthTopic, m.env, nodeID), mqtt.Qos1, m.healthMsgCallback)
 
-	m.mqttClient.Sub(fmt.Sprintf(model.BaseBizTopic, m.env, nodeID), mqtt.Qos1, m.bizMsgCallback)
+	m.mqttClient.Sub(fmt.Sprintf(model.BaseSimpleBizTopic, m.env, nodeID), mqtt.Qos1, m.bizMsgCallback)
+
+	m.mqttClient.Sub(fmt.Sprintf(model.BaseAllBizTopic, m.env, nodeID), mqtt.Qos1, m.allBizMsgCallback)
 
 	m.mqttClient.Sub(fmt.Sprintf(model.BaseBizOperationResponseTopic, m.env, nodeID), mqtt.Qos1, m.bizOperationResponseCallback)
 	m.Lock()
@@ -67,13 +68,31 @@ func (m *MqttTunnel) OnNodeStart(ctx context.Context, nodeID string) {
 func (m *MqttTunnel) OnNodeStop(ctx context.Context, nodeID string) {
 	m.mqttClient.UnSub(fmt.Sprintf(model.BaseHealthTopic, m.env, nodeID))
 
-	m.mqttClient.UnSub(fmt.Sprintf(model.BaseBizTopic, m.env, nodeID))
+	m.mqttClient.UnSub(fmt.Sprintf(model.BaseSimpleBizTopic, m.env, nodeID))
+
+	m.mqttClient.UnSub(fmt.Sprintf(model.BaseAllBizTopic, m.env, nodeID))
 
 	m.mqttClient.UnSub(fmt.Sprintf(model.BaseBizOperationResponseTopic, m.env, nodeID))
 
 	m.Lock()
 	defer m.Unlock()
 	delete(m.onlineNode, nodeID)
+}
+
+func (m *MqttTunnel) OnNodeNotReady(ctx context.Context, info vkModel.UnreachableNodeInfo) {
+	// base not ready, delete from api server
+	node := corev1.Node{}
+	err := m.Client.Get(ctx, client.ObjectKey{Name: vkUtils.FormatNodeName(info.NodeID, m.env)}, &node)
+	logger := log.G(ctx).WithField("nodeID", info.NodeID).WithField("func", "OnNodeNotReady")
+	retryTimes := 0
+	for err != nil && !errors.IsNotFound(err) {
+		logger.WithError(err).WithField("retry", retryTimes).Error("Failed to get node")
+		retryTimes++
+		err = m.Client.Get(ctx, client.ObjectKey{Name: vkUtils.FormatNodeName(info.NodeID, m.env)}, &node)
+		time.Sleep(500 * time.Duration(retryTimes) * time.Millisecond)
+	}
+	logger.Info("DeleteBaseNode")
+	m.Client.Delete(ctx, &node)
 }
 
 func (m *MqttTunnel) Key() string {
@@ -125,28 +144,6 @@ func (m *MqttTunnel) Start(ctx context.Context, clientID, env string) (err error
 		log.G(ctx).WithError(err).Error("mqtt connect error")
 		return
 	}
-
-	go func() {
-		if m.Cache != nil {
-			m.Cache.WaitForCacheSync(ctx)
-			vkUtils.TimedTaskWithInterval(ctx, time.Minute, func(ctx context.Context) {
-				nodeList := corev1.NodeList{}
-				envRequirement, _ := labels.NewRequirement(vkModel.LabelKeyOfEnv, selection.In, []string{m.env})
-				componentRequirement, _ := labels.NewRequirement(vkModel.LabelKeyOfComponent, selection.In, []string{vkModel.ComponentVNode})
-				m.Client.List(ctx, &nodeList, &client.ListOptions{
-					LabelSelector: labels.NewSelector().Add(*envRequirement, *componentRequirement),
-				})
-				for _, node := range nodeList.Items {
-					for _, condition := range node.Status.Conditions {
-						if condition.Type == corev1.NodeReady && condition.Status != corev1.ConditionTrue {
-							// base not ready, delete from api server
-							m.Client.Delete(ctx, &node)
-						}
-					}
-				}
-			})
-		}
-	}()
 
 	go func() {
 		<-ctx.Done()
@@ -225,6 +222,26 @@ func (m *MqttTunnel) bizMsgCallback(_ paho.Client, msg paho.Message) {
 	defer msg.Ack()
 
 	nodeID := utils.GetBaseIDFromTopic(msg.Topic())
+	var data model.ArkMqttMsg[model.ArkSimpleAllBizInfoData]
+	err := json.Unmarshal(msg.Payload(), &data)
+	if err != nil {
+		logrus.Errorf("Error unmarshalling biz response: %v", err)
+		return
+	}
+	if utils.Expired(data.PublishTimestamp, 1000*10) {
+		return
+	}
+
+	if m.onQueryAllBizDataArrived != nil {
+		bizInfos := utils.TranslateSimpleBizDataToBizInfos(data.Data)
+		m.onQueryAllBizDataArrived(nodeID, utils.TranslateBizInfosToContainerStatuses(bizInfos, data.PublishTimestamp))
+	}
+}
+
+func (m *MqttTunnel) allBizMsgCallback(_ paho.Client, msg paho.Message) {
+	defer msg.Ack()
+
+	nodeID := utils.GetBaseIDFromTopic(msg.Topic())
 	var data model.ArkMqttMsg[ark.QueryAllArkBizResponse]
 	err := json.Unmarshal(msg.Payload(), &data)
 	if err != nil {
@@ -234,11 +251,9 @@ func (m *MqttTunnel) bizMsgCallback(_ paho.Client, msg paho.Message) {
 	if utils.Expired(data.PublishTimestamp, 1000*10) {
 		return
 	}
-	if data.Data.Code != "SUCCESS" {
-		return
-	}
+
 	if m.onQueryAllBizDataArrived != nil {
-		m.onQueryAllBizDataArrived(nodeID, utils.TranslateQueryAllBizDataToContainerStatuses(data.Data.Data))
+		m.onQueryAllBizDataArrived(nodeID, utils.TranslateBizInfosToContainerStatuses(data.Data.GenericArkResponseBase.Data, data.PublishTimestamp))
 	}
 }
 
@@ -258,7 +273,10 @@ func (m *MqttTunnel) bizOperationResponseCallback(_ paho.Client, msg paho.Messag
 
 	containerState := vkModel.ContainerStateDeactivated
 	if data.Data.Response.Code == "SUCCESS" {
-		containerState = vkModel.ContainerStateActivated
+		if data.Data.Command == model.CommandInstallBiz {
+			// not update here, update in all biz response callback
+			return
+		}
 	} else {
 		// operation failed, log
 		logrus.Errorf("biz operation failed: %s\n%s\n%s", data.Data.Response.Message, data.Data.Response.ErrorStackTrace, data.Data.Response.Data.Message)
@@ -269,9 +287,9 @@ func (m *MqttTunnel) bizOperationResponseCallback(_ paho.Client, msg paho.Messag
 		Name:       data.Data.BizName,
 		PodKey:     vkModel.PodKeyAll,
 		State:      containerState,
-		ChangeTime: time.Now(),
-		Reason:     data.Data.Response.Code,
-		Message:    data.Data.Response.Message,
+		ChangeTime: time.UnixMilli(data.PublishTimestamp),
+		Reason:     data.Data.Response.Data.Code,
+		Message:    data.Data.Response.Data.Message,
 	})
 }
 
@@ -283,12 +301,28 @@ func (m *MqttTunnel) QueryAllContainerStatusData(_ context.Context, nodeID strin
 	return m.mqttClient.Pub(utils.FormatArkletCommandTopic(m.env, nodeID, model.CommandQueryAllBiz), mqtt.Qos0, []byte("{}"))
 }
 
-func (m *MqttTunnel) StartContainer(_ context.Context, deviceID, _ string, container *corev1.Container) error {
-	installBizRequestBytes, _ := json.Marshal(utils.TranslateCoreV1ContainerToBizModel(container))
-	return m.mqttClient.Pub(utils.FormatArkletCommandTopic(m.env, deviceID, model.CommandInstallBiz), mqtt.Qos0, installBizRequestBytes)
+func (m *MqttTunnel) StartContainer(ctx context.Context, nodeID, _ string, container *corev1.Container) error {
+	bizModel := utils.TranslateCoreV1ContainerToBizModel(container)
+	logger := log.G(ctx).WithField("bizName", bizModel.BizName).WithField("bizVersion", bizModel.BizVersion)
+	logger.Info("InstallModule")
+	//bizInfo := m.moduleCache.GetBizInfo(nodeID, utils.GetBizIdentity(bizModel.BizName, bizModel.BizVersion))
+	//if bizInfo != nil && bizInfo.BizState == "ACTIVATED" {
+	//	logger.Info("BizActivated")
+	//	return nil
+	//}
+	installBizRequestBytes, _ := json.Marshal(bizModel)
+	return m.mqttClient.Pub(utils.FormatArkletCommandTopic(m.env, nodeID, model.CommandInstallBiz), mqtt.Qos0, installBizRequestBytes)
 }
 
-func (m *MqttTunnel) ShutdownContainer(_ context.Context, deviceID, _ string, container *corev1.Container) error {
-	unInstallBizRequestBytes, _ := json.Marshal(utils.TranslateCoreV1ContainerToBizModel(container))
-	return m.mqttClient.Pub(utils.FormatArkletCommandTopic(m.env, deviceID, model.CommandUnInstallBiz), mqtt.Qos0, unInstallBizRequestBytes)
+func (m *MqttTunnel) ShutdownContainer(ctx context.Context, nodeID, _ string, container *corev1.Container) error {
+	bizModel := utils.TranslateCoreV1ContainerToBizModel(container)
+	unInstallBizRequestBytes, _ := json.Marshal(bizModel)
+	logger := log.G(ctx).WithField("bizName", bizModel.BizName).WithField("bizVersion", bizModel.BizVersion)
+	logger.Info("UninstallModule")
+	//bizInfo := m.moduleCache.GetBizInfo(nodeID, utils.GetBizIdentity(bizModel.BizName, bizModel.BizVersion))
+	//if bizInfo == nil {
+	//	logger.Info("BizModelNotExist")
+	//	return nil
+	//}
+	return m.mqttClient.Pub(utils.FormatArkletCommandTopic(m.env, nodeID, model.CommandUnInstallBiz), mqtt.Qos0, unInstallBizRequestBytes)
 }

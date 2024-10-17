@@ -275,6 +275,23 @@ func (b *MockBase) SetBizState(bizIdentity, state, reason, message string) {
 		respBytes, _ := json.Marshal(resp)
 		b.client.Pub(fmt.Sprintf(model.BaseBizOperationResponseTopic, b.Env, b.ID), 1, respBytes)
 	}
+	// send simple all biz data
+	arkBizInfos := make(model.ArkSimpleAllBizInfoData, 0)
+
+	for _, bizInfo := range b.BizInfos {
+		arkBizInfos = append(arkBizInfos, []string{
+			bizInfo.BizName,
+			bizInfo.BizVersion,
+			"3",
+		})
+	}
+
+	msg := model.ArkMqttMsg[model.ArkSimpleAllBizInfoData]{
+		PublishTimestamp: time.Now().UnixMilli(),
+		Data:             arkBizInfos,
+	}
+	msgBytes, _ := json.Marshal(msg)
+	b.client.Pub(fmt.Sprintf("koupleless_%s/%s/base/simpleBiz", b.Env, b.ID), 1, msgBytes)
 }
 
 func (b *MockBase) processQueryAllBiz() {

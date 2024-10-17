@@ -18,7 +18,7 @@ var _ = Describe("Module Lifecycle Test", func() {
 	nodeID := "test-base"
 	mockBase := NewMockBase("test-base", "1.0.0", nodeID, env)
 
-	mockModulePod := prepareModulePod("test-module", "default", utils.FormatNodeName(nodeID))
+	mockModulePod := prepareModulePod("test-module", "default", utils.FormatNodeName(nodeID, env))
 
 	Context("pod install", func() {
 		It("base should become a ready vnode eventually", func() {
@@ -26,7 +26,7 @@ var _ = Describe("Module Lifecycle Test", func() {
 			vnode := &v1.Node{}
 			Eventually(func() bool {
 				err := k8sClient.Get(ctx, types.NamespacedName{
-					Name: utils.FormatNodeName(nodeID),
+					Name: utils.FormatNodeName(nodeID, env),
 				}, vnode)
 				vnodeReady := false
 				for _, cond := range vnode.Status.Conditions {
@@ -48,7 +48,7 @@ var _ = Describe("Module Lifecycle Test", func() {
 					Namespace: mockModulePod.Namespace,
 					Name:      mockModulePod.Name,
 				}, podFromKubernetes)
-				return err == nil && podFromKubernetes.Status.Phase == v1.PodPending && podFromKubernetes.Spec.NodeName == utils.FormatNodeName(nodeID)
+				return err == nil && podFromKubernetes.Status.Phase == v1.PodPending && podFromKubernetes.Spec.NodeName == utils.FormatNodeName(nodeID, env)
 			}, time.Second*20, time.Second).Should(BeTrue())
 			Eventually(func() bool {
 				return len(mockBase.BizInfos) == 1
@@ -106,7 +106,7 @@ var _ = Describe("Module Lifecycle Test", func() {
 			Eventually(func() bool {
 				vnode := &v1.Node{}
 				err := k8sClient.Get(ctx, types.NamespacedName{
-					Name: utils.FormatNodeName(nodeID),
+					Name: utils.FormatNodeName(nodeID, env),
 				}, vnode)
 				return errors.IsNotFound(err)
 			}, time.Second*30, time.Second).Should(BeTrue())

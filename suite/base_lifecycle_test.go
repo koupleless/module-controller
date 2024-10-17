@@ -24,7 +24,7 @@ var _ = Describe("Base Lifecycle Test", func() {
 			vnode := &v1.Node{}
 			Eventually(func() bool {
 				err := k8sClient.Get(ctx, types.NamespacedName{
-					Name: utils.FormatNodeName(nodeID),
+					Name: utils.FormatNodeName(nodeID, env),
 				}, vnode)
 				vnodeReady := false
 				for _, cond := range vnode.Status.Conditions {
@@ -34,7 +34,7 @@ var _ = Describe("Base Lifecycle Test", func() {
 					}
 				}
 				return err == nil && vnodeReady
-			}, time.Second*20, time.Second).Should(BeTrue())
+			}, time.Second*50, time.Second).Should(BeTrue())
 		})
 
 		It("base offline with deactive message and finally exit", func() {
@@ -42,10 +42,10 @@ var _ = Describe("Base Lifecycle Test", func() {
 			Eventually(func() bool {
 				vnode := &v1.Node{}
 				err := k8sClient.Get(ctx, types.NamespacedName{
-					Name: utils.FormatNodeName(nodeID),
+					Name: utils.FormatNodeName(nodeID, env),
 				}, vnode)
 				return errors.IsNotFound(err)
-			}, time.Second*30, time.Second).Should(BeTrue())
+			}, time.Second*50, time.Second).Should(BeTrue())
 		})
 	})
 

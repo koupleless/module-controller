@@ -39,6 +39,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/manager"
 	"sigs.k8s.io/controller-runtime/pkg/manager/signals"
 	"sigs.k8s.io/controller-runtime/pkg/metrics/server"
+	"strconv"
 	"syscall"
 )
 
@@ -56,21 +57,28 @@ func main() {
 	log.L = logruslogger.FromLogrus(logrus.NewEntry(logrus.StandardLogger()))
 	trace.T = opencensus.Adapter{}
 
-	clientID := uuid.New().String()
+	clientID := utils.GetEnv("CLIENT_ID", uuid.New().String())
 	env := utils.GetEnv("ENV", "dev")
 
 	ctx = log.WithLogger(ctx, log.G(ctx).WithFields(log.Fields{
-		"clientID": clientID,
-		"env":      env,
+		"clientID":   clientID,
+		"env":        env,
+		"is_cluster": true,
 	}))
+
+	isCluster := utils.GetEnv("IS_CLUSTER", "") == "true"
+	workloadMaxLevel, err := strconv.Atoi(utils.GetEnv("WORKLOAD_MAX_LEVEL", "3"))
+
+	if err != nil {
+		log.G(ctx).WithError(err).Error("failed to parse WORKLOAD_MAX_LEVEL, will be set to 3 default")
+	}
 
 	kubeConfig := config.GetConfigOrDie()
 	mgr, err := manager.New(kubeConfig, manager.Options{
 		Cache: cache.Options{},
 		Metrics: server.Options{
-			BindAddress: ":9090",
+			BindAddress: "0",
 		},
-		PprofBindAddress: ":9091",
 	})
 
 	if err != nil {
@@ -86,9 +94,11 @@ func main() {
 	}
 
 	rcc := vkModel.BuildVNodeControllerConfig{
-		ClientID:     clientID,
-		Env:          env,
-		VPodIdentity: model.ComponentModule,
+		ClientID:         clientID,
+		Env:              env,
+		VPodIdentity:     model.ComponentModule,
+		IsCluster:        isCluster,
+		WorkloadMaxLevel: workloadMaxLevel,
 	}
 
 	vc, err := vnode_controller.NewVNodeController(&rcc, []tunnel.Tunnel{

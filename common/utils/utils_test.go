@@ -5,7 +5,9 @@ import (
 	"github.com/koupleless/arkctl/v1/service/ark"
 	"github.com/koupleless/module_controller/common/model"
 	vkModel "github.com/koupleless/virtual-kubelet/model"
+	"github.com/stretchr/testify/assert"
 	corev1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/api/resource"
 	"reflect"
 	"testing"
 	"time"
@@ -325,7 +327,7 @@ func TestTranslateHeartBeatDataToNodeInfo(t *testing.T) {
 	}
 }
 
-// Test cases for TranslateQueryAllBizDataToContainerStatuses function
+// Test cases for TranslateSimpleBizDataToBizInfos function
 func TestTranslateQueryAllBizDataToContainerStatuses(t *testing.T) {
 	tests := []struct {
 		data     []ark.ArkBizInfo
@@ -391,9 +393,9 @@ func TestTranslateQueryAllBizDataToContainerStatuses(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.data[0].BizName, func(t *testing.T) {
-			actual := TranslateQueryAllBizDataToContainerStatuses(tt.data)
+			actual := TranslateBizInfosToContainerStatuses(tt.data, 0)
 			if !reflect.DeepEqual(actual, tt.expected) {
-				t.Errorf("TranslateQueryAllBizDataToContainerStatuses() = %+v; expected %+v", actual, tt.expected)
+				t.Errorf("TranslateSimpleBizDataToBizInfos() = %+v; expected %+v", actual, tt.expected)
 			}
 		})
 	}
@@ -406,13 +408,14 @@ func TestGetContainerStateFromBizState(t *testing.T) {
 	}{
 		{"ACTIVATED", vkModel.ContainerStateActivated},
 		{"DEACTIVATED", vkModel.ContainerStateDeactivated},
-		{"UNKNOWN", vkModel.ContainerStateResolved},
+		{"RESOLVED", vkModel.ContainerStateResolved},
+		{"", vkModel.ContainerStateWaiting},
 	}
 
 	for _, tc := range testCases {
 		result := GetContainerStateFromBizState(tc.input)
 		if result != tc.expected {
-			t.Errorf("GetContainerStateFromBizState(%s) = %v; want %v", tc.input, result, tc.expected)
+			t.Errorf("GetContainerStateFromSimpleBizState(%s) = %v; want %v", tc.input, result, tc.expected)
 		}
 	}
 }
@@ -517,4 +520,130 @@ func TestGetLatestStateInvalidChangeTime(t *testing.T) {
 	if message != expectedMessage {
 		t.Errorf("Expected message %s, got %s", expectedMessage, message)
 	}
+}
+
+func TestTranslateHealthDataToNodeStatus(t *testing.T) {
+	testCases := []struct {
+		input    ark.HealthData
+		expected vkModel.NodeStatusData
+	}{
+		{
+			input: ark.HealthData{
+				Jvm: ark.JvmInfo{
+					JavaMaxMetaspace:       1024,
+					JavaCommittedMetaspace: 0,
+				},
+			},
+			expected: vkModel.NodeStatusData{
+				Resources: map[corev1.ResourceName]vkModel.NodeResource{
+					corev1.ResourceMemory: {
+						Capacity:    resource.MustParse("1Ki"),
+						Allocatable: resource.MustParse("1Ki"),
+					},
+				},
+			},
+		},
+	}
+
+	for _, tc := range testCases {
+		result := TranslateHealthDataToNodeStatus(tc.input)
+		if result.Resources[corev1.ResourceMemory].Capacity != tc.expected.Resources[corev1.ResourceMemory].Capacity {
+			t.Errorf("TranslateHealthDataToNodeStatus(%v) = %v; want %v", tc.input, result, tc.expected)
+		}
+		if result.Resources[corev1.ResourceMemory].Allocatable != tc.expected.Resources[corev1.ResourceMemory].Allocatable {
+			t.Errorf("TranslateHealthDataToNodeStatus(%v) = %v; want %v", tc.input, result, tc.expected)
+		}
+	}
+}
+
+func TestTranslateHeartBeatDataToBaselineQuery(t *testing.T) {
+	testCases := []struct {
+		input    model.Metadata
+		expected model.QueryBaselineRequest
+	}{
+		{
+			input: model.Metadata{
+				Name:    "test",
+				Version: "1.0.0",
+			},
+			expected: model.QueryBaselineRequest{
+				Name:    "test",
+				Version: "1.0.0",
+				CustomLabels: map[string]string{
+					model.LabelKeyOfTechStack: "java",
+				},
+			},
+		},
+	}
+
+	for _, tc := range testCases {
+		result := TranslateHeartBeatDataToBaselineQuery(tc.input)
+		if result.Name != tc.expected.Name || result.Version != tc.expected.Version || len(result.CustomLabels) != len(tc.expected.CustomLabels) {
+			t.Errorf("TranslateHeartBeatDataToBaselineQuery(%s) = %v; want %v", tc.input, result, tc.expected)
+		}
+	}
+}
+
+func TestTranslateSimpleBizDataToArkBizInfos(t *testing.T) {
+	testCases := []struct {
+		input    model.ArkSimpleAllBizInfoData
+		expected []ark.ArkBizInfo
+	}{
+		{
+			input: model.ArkSimpleAllBizInfoData{
+				[]string{
+					"biz1", "0.0.1", "3",
+				},
+				[]string{},
+			},
+			expected: []ark.ArkBizInfo{
+				{
+					BizName:    "biz1",
+					BizState:   "ACTIVATED",
+					BizVersion: "0.0.1",
+				},
+			},
+		},
+	}
+
+	for _, tc := range testCases {
+		result := TranslateSimpleBizDataToBizInfos(tc.input)
+		if len(result) != 1 {
+			t.Errorf("TranslateHeartBeatDataToBaselineQuery(%s) = %v; want %v", tc.input, result, tc.expected)
+		}
+	}
+}
+
+func TestTranslateSimpleBizDataToArkBizInfo(t *testing.T) {
+	info := TranslateSimpleBizDataToArkBizInfo([]string{})
+	assert.Nil(t, info)
+	info = TranslateSimpleBizDataToArkBizInfo([]string{
+		"biz1", "0.0.1", "3",
+	})
+	assert.NotNil(t, info)
+}
+
+func TestGetArkBizStateFromSimpleBizState(t *testing.T) {
+	testCases := map[string]string{
+		"2":   "RESOLVED",
+		"3":   "ACTIVATED",
+		"4":   "DEACTIVATED",
+		"123": "",
+	}
+	for input, expected := range testCases {
+		state := GetArkBizStateFromSimpleBizState(input)
+		assert.Equal(t, expected, state)
+	}
+}
+
+func TestGetLatestState_ChangeTimeLenLt3(t *testing.T) {
+	updatedTime, reason, message := GetLatestState("ACTIVATED", []ark.ArkBizStateRecord{
+		{
+			State:      "ACTIVATED",
+			ChangeTime: "",
+		},
+	})
+	assert.Zero(t, updatedTime.UnixMilli())
+	assert.Empty(t, reason)
+	assert.Empty(t, message)
 }

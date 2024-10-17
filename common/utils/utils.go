@@ -102,31 +102,75 @@ func TranslateHeartBeatDataToBaselineQuery(data model.Metadata) model.QueryBasel
 	}
 }
 
-func TranslateQueryAllBizDataToContainerStatuses(data []ark.ArkBizInfo) []vkModel.ContainerStatusData {
+func TranslateBizInfosToContainerStatuses(data []ark.ArkBizInfo, changeTimestamp int64) []vkModel.ContainerStatusData {
 	ret := make([]vkModel.ContainerStatusData, 0)
 	for _, bizInfo := range data {
-		changeTime, reason, message := GetLatestState(bizInfo.BizState, bizInfo.BizStateRecords)
-		ret = append(ret, vkModel.ContainerStatusData{
+		updatedTime, reason, message := GetLatestState(bizInfo.BizState, bizInfo.BizStateRecords)
+		statusData := vkModel.ContainerStatusData{
 			Key:        GetBizIdentity(bizInfo.BizName, bizInfo.BizVersion),
 			Name:       bizInfo.BizName,
 			PodKey:     vkModel.PodKeyAll,
 			State:      GetContainerStateFromBizState(bizInfo.BizState),
-			ChangeTime: changeTime,
-			Reason:     reason,
-			Message:    message,
-		})
+			ChangeTime: time.UnixMilli(changeTimestamp),
+		}
+		if updatedTime.UnixMilli() != 0 {
+			statusData.ChangeTime = updatedTime
+			statusData.Reason = reason
+			statusData.Message = message
+		}
+		ret = append(ret, statusData)
 	}
 	return ret
 }
 
-func GetContainerStateFromBizState(bizState string) vkModel.ContainerState {
-	switch bizState {
+func TranslateSimpleBizDataToBizInfos(data model.ArkSimpleAllBizInfoData) []ark.ArkBizInfo {
+	ret := make([]ark.ArkBizInfo, 0)
+	for _, simpleBizInfo := range data {
+		bizInfo := TranslateSimpleBizDataToArkBizInfo(simpleBizInfo)
+		if bizInfo == nil {
+			continue
+		}
+		ret = append(ret, *bizInfo)
+	}
+	return ret
+}
+
+func TranslateSimpleBizDataToArkBizInfo(data model.ArkSimpleBizInfoData) *ark.ArkBizInfo {
+	if len(data) < 3 {
+		return nil
+	}
+	bizName := data[0]
+	bizVersion := data[1]
+	bizStateIndex := data[2]
+	return &ark.ArkBizInfo{
+		BizName:    bizName,
+		BizVersion: bizVersion,
+		BizState:   GetArkBizStateFromSimpleBizState(bizStateIndex),
+	}
+}
+
+func GetContainerStateFromBizState(bizStateIndex string) vkModel.ContainerState {
+	switch bizStateIndex {
+	case "RESOLVED":
+		return vkModel.ContainerStateResolved
 	case "ACTIVATED":
 		return vkModel.ContainerStateActivated
 	case "DEACTIVATED":
 		return vkModel.ContainerStateDeactivated
 	}
-	return vkModel.ContainerStateResolved
+	return vkModel.ContainerStateWaiting
+}
+
+func GetArkBizStateFromSimpleBizState(bizStateIndex string) string {
+	switch bizStateIndex {
+	case "2":
+		return "RESOLVED"
+	case "3":
+		return "ACTIVATED"
+	case "4":
+		return "DEACTIVATED"
+	}
+	return ""
 }
 
 func GetLatestState(state string, records []ark.ArkBizStateRecord) (time.Time, string, string) {
