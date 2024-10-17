@@ -212,6 +212,26 @@ func (b *MockBase) processUnInstallBiz(msg []byte) {
 	request := ark.BizModel{}
 	json.Unmarshal(msg, &request)
 	delete(b.BizInfos, getBizIdentity(request))
+	// send to response
+	resp := model.ArkMqttMsg[model.BizOperationResponse]{
+		PublishTimestamp: time.Now().UnixMilli(),
+		Data: model.BizOperationResponse{
+			Command:    model.CommandUnInstallBiz,
+			BizName:    request.BizName,
+			BizVersion: request.BizVersion,
+			Response: ark.ArkResponseBase{
+				Code: "SUCCESS",
+				Data: ark.ArkResponseData{
+					Code:    "SUCCESS",
+					Message: "",
+				},
+				Message:         "",
+				ErrorStackTrace: "",
+			},
+		},
+	}
+	respBytes, _ := json.Marshal(resp)
+	b.client.Pub(fmt.Sprintf(model.BaseBizOperationResponseTopic, b.Env, b.ID), 1, respBytes)
 }
 
 func (b *MockBase) SendInvalidMessage() {
@@ -279,10 +299,14 @@ func (b *MockBase) SetBizState(bizIdentity, state, reason, message string) {
 	arkBizInfos := make(model.ArkSimpleAllBizInfoData, 0)
 
 	for _, bizInfo := range b.BizInfos {
+		stateIndex := "4"
+		if state == "ACTIVATED" {
+			stateIndex = "3"
+		}
 		arkBizInfos = append(arkBizInfos, []string{
 			bizInfo.BizName,
 			bizInfo.BizVersion,
-			"3",
+			stateIndex,
 		})
 	}
 
