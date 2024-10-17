@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"github.com/koupleless/virtual-kubelet/common/utils"
+	"github.com/sirupsen/logrus"
 	"io/ioutil"
 	"log"
 	"net/http"
@@ -99,6 +100,6 @@ func InitReportServer() {
 	http.HandleFunc("/log", logHandler)
 	log.Println("Starting server on :8080")
 	if err := http.ListenAndServe(":8080", nil); err != nil {
-		log.Fatalf("Server failed: %v", err)
+		logrus.Errorf("Server failed: %v", err)
 	}
 }
