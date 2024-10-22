@@ -20,6 +20,7 @@ import (
 	"github.com/koupleless/module_controller/common/model"
 	"github.com/koupleless/module_controller/controller/module_deployment_controller"
 	"github.com/koupleless/module_controller/module_tunnels"
+	"github.com/koupleless/module_controller/module_tunnels/koupleless_http_tunnel"
 	"github.com/koupleless/module_controller/module_tunnels/koupleless_mqtt_tunnel"
 	"github.com/koupleless/module_controller/report_server"
 	"github.com/koupleless/virtual-kubelet/common/log"
@@ -88,9 +89,15 @@ func main() {
 
 	tracker.SetTracker(&tracker.DefaultTracker{})
 
-	tl := &koupleless_mqtt_tunnel.MqttTunnel{
+	mqttTl := &koupleless_mqtt_tunnel.MqttTunnel{
 		Cache:  mgr.GetCache(),
 		Client: mgr.GetClient(),
+	}
+
+	httpTl := &koupleless_http_tunnel.HttpTunnel{
+		Cache:  mgr.GetCache(),
+		Client: mgr.GetClient(),
+		Port:   7777,
 	}
 
 	rcc := vkModel.BuildVNodeControllerConfig{
@@ -102,7 +109,8 @@ func main() {
 	}
 
 	vc, err := vnode_controller.NewVNodeController(&rcc, []tunnel.Tunnel{
-		tl,
+		mqttTl,
+		httpTl,
 	})
 	if err != nil {
 		log.G(ctx).Error(err, "unable to set up VNodeController")
@@ -119,7 +127,7 @@ func main() {
 
 	if enableModuleDeploymentController == "true" {
 		mdc, err := module_deployment_controller.NewModuleDeploymentController(env, []module_tunnels.ModuleTunnel{
-			tl,
+			mqttTl,
 		})
 		if err != nil {
 			log.G(ctx).Error(err, "unable to set up module_deployment_controller")
@@ -133,11 +141,18 @@ func main() {
 		}
 	}
 
-	err = tl.Start(ctx, clientID, env)
+	err = mqttTl.Start(ctx, clientID, env)
 	if err != nil {
-		log.G(ctx).WithError(err).Error("failed to start tunnel", tl.Key())
+		log.G(ctx).WithError(err).Error("failed to start tunnel", mqttTl.Key())
 	} else {
-		log.G(ctx).Info("Tunnel started: ", tl.Key())
+		log.G(ctx).Info("Tunnel started: ", mqttTl.Key())
+	}
+
+	err = httpTl.Start(ctx, clientID, env)
+	if err != nil {
+		log.G(ctx).WithError(err).Error("failed to start tunnel", httpTl.Key())
+	} else {
+		log.G(ctx).Info("Tunnel started: ", httpTl.Key())
 	}
 
 	log.G(ctx).Info("Module controller running")
