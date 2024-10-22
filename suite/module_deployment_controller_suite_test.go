@@ -18,8 +18,8 @@ var _ = Describe("Module Deployment Controller Test", func() {
 
 	ctx := context.Background()
 
-	mockBase := NewMockBase("test-base", "1.0.0", "test-base", env)
-	mockBase2 := NewMockBase("test-base", "1.0.0", "test-base-2", env)
+	mockBase := NewMockMqttBase("test-base", "1.0.0", "test-base", env)
+	mockBase2 := NewMockMqttBase("test-base", "1.0.0", "test-base-2", env)
 
 	deployment1 := appsv1.Deployment{
 		ObjectMeta: metav1.ObjectMeta{

@@ -7,13 +7,14 @@ import (
 	paho "github.com/eclipse/paho.mqtt.golang"
 	"github.com/koupleless/arkctl/v1/service/ark"
 	"github.com/koupleless/module_controller/common/model"
+	"github.com/koupleless/module_controller/module_tunnels/koupleless_http_tunnel/ark_service"
 	"github.com/koupleless/module_controller/module_tunnels/koupleless_mqtt_tunnel/mqtt"
 	"strings"
 	"sync"
 	"time"
 )
 
-type MockBase struct {
+type MockMQTTBase struct {
 	sync.Mutex
 	ID        string
 	Env       string
@@ -23,11 +24,12 @@ type MockBase struct {
 	Baseline  []ark.BizModel
 	client    *mqtt.Client
 
-	exit chan struct{}
+	exit        chan struct{}
+	unreachable chan struct{}
 }
 
-func NewMockBase(name, version, id, env string) *MockBase {
-	return &MockBase{
+func NewMockMqttBase(name, version, id, env string) *MockMQTTBase {
+	return &MockMQTTBase{
 		ID:        id,
 		Env:       env,
 		CurrState: "ACTIVATED",
@@ -35,12 +37,13 @@ func NewMockBase(name, version, id, env string) *MockBase {
 			Name:    name,
 			Version: version,
 		},
-		BizInfos: make(map[string]ark.ArkBizInfo),
-		exit:     make(chan struct{}),
+		BizInfos:    make(map[string]ark.ArkBizInfo),
+		exit:        make(chan struct{}),
+		unreachable: make(chan struct{}),
 	}
 }
 
-func (b *MockBase) Exit() {
+func (b *MockMQTTBase) Exit() {
 	select {
 	case <-b.exit:
 	default:
@@ -48,7 +51,17 @@ func (b *MockBase) Exit() {
 	}
 }
 
-func (b *MockBase) Start(ctx context.Context) error {
+func (b *MockMQTTBase) Unreachable() {
+	select {
+	case <-b.unreachable:
+	default:
+		close(b.unreachable)
+	}
+}
+
+func (b *MockMQTTBase) Start(ctx context.Context) error {
+	b.unreachable = make(chan struct{})
+	b.exit = make(chan struct{})
 	var err error
 	b.client, err = mqtt.NewMqttClient(&mqtt.ClientConfig{
 		Broker:   "localhost",
@@ -81,13 +94,13 @@ func (b *MockBase) Start(ctx context.Context) error {
 	return nil
 }
 
-func (b *MockBase) SetCurrState(state string) {
+func (b *MockMQTTBase) SetCurrState(state string) {
 	b.CurrState = state
 	// send heart beat message
 	b.client.Pub(fmt.Sprintf("koupleless_%s/%s/base/heart", b.Env, b.ID), 1, b.getHeartBeatMsg())
 }
 
-func (b *MockBase) getHeartBeatMsg() []byte {
+func (b *MockMQTTBase) getHeartBeatMsg() []byte {
 	msg := model.ArkMqttMsg[model.HeartBeatData]{
 		PublishTimestamp: time.Now().UnixMilli(),
 		Data: model.HeartBeatData{
@@ -103,7 +116,7 @@ func (b *MockBase) getHeartBeatMsg() []byte {
 	return msgBytes
 }
 
-func (b *MockBase) getHealthMsg() []byte {
+func (b *MockMQTTBase) getHealthMsg() []byte {
 	msg := model.ArkMqttMsg[ark.HealthResponse]{
 		PublishTimestamp: time.Now().UnixMilli(),
 		Data: ark.HealthResponse{
@@ -131,7 +144,7 @@ func (b *MockBase) getHealthMsg() []byte {
 	return msgBytes
 }
 
-func (b *MockBase) getQueryAllBizMsg() []byte {
+func (b *MockMQTTBase) getQueryAllBizMsg() []byte {
 
 	arkBizInfos := make([]ark.ArkBizInfo, 0)
 
@@ -153,8 +166,14 @@ func (b *MockBase) getQueryAllBizMsg() []byte {
 	return msgBytes
 }
 
-func (b *MockBase) processCommand(_ paho.Client, msg paho.Message) {
+func (b *MockMQTTBase) processCommand(_ paho.Client, msg paho.Message) {
 	defer msg.Ack()
+	select {
+	case <-b.unreachable:
+		// just return
+		return
+	default:
+	}
 	split := strings.Split(msg.Topic(), "/")
 	command := split[len(split)-1]
 	switch command {
@@ -169,7 +188,7 @@ func (b *MockBase) processCommand(_ paho.Client, msg paho.Message) {
 	}
 }
 
-func (b *MockBase) processBaseline(_ paho.Client, msg paho.Message) {
+func (b *MockMQTTBase) processBaseline(_ paho.Client, msg paho.Message) {
 	defer msg.Ack()
 	var data []ark.BizModel
 	json.Unmarshal(msg.Payload(), &data)
@@ -185,11 +204,11 @@ func (b *MockBase) processBaseline(_ paho.Client, msg paho.Message) {
 	b.Baseline = data
 }
 
-func (b *MockBase) processHealth() {
+func (b *MockMQTTBase) processHealth() {
 	b.client.Pub(fmt.Sprintf("koupleless_%s/%s/base/health", b.Env, b.ID), 1, b.getHealthMsg())
 }
 
-func (b *MockBase) processInstallBiz(msg []byte) {
+func (b *MockMQTTBase) processInstallBiz(msg []byte) {
 	b.Lock()
 	defer b.Unlock()
 	request := ark.BizModel{}
@@ -206,7 +225,7 @@ func (b *MockBase) processInstallBiz(msg []byte) {
 	}
 }
 
-func (b *MockBase) processUnInstallBiz(msg []byte) {
+func (b *MockMQTTBase) processUnInstallBiz(msg []byte) {
 	b.Lock()
 	defer b.Unlock()
 	request := ark.BizModel{}
@@ -219,7 +238,7 @@ func (b *MockBase) processUnInstallBiz(msg []byte) {
 			Command:    model.CommandUnInstallBiz,
 			BizName:    request.BizName,
 			BizVersion: request.BizVersion,
-			Response: ark.ArkResponseBase{
+			Response: ark_service.ArkResponse{
 				Code: "SUCCESS",
 				Data: ark.ArkResponseData{
 					Code:    "SUCCESS",
@@ -234,26 +253,26 @@ func (b *MockBase) processUnInstallBiz(msg []byte) {
 	b.client.Pub(fmt.Sprintf(model.BaseBizOperationResponseTopic, b.Env, b.ID), 1, respBytes)
 }
 
-func (b *MockBase) SendInvalidMessage() {
+func (b *MockMQTTBase) SendInvalidMessage() {
 	b.client.Pub(fmt.Sprintf("koupleless_%s/%s/base/health", b.Env, b.ID), 1, []byte(""))
 	b.client.Pub(fmt.Sprintf("koupleless_%s/%s/base/biz", b.Env, b.ID), 1, []byte(""))
 	b.client.Pub(fmt.Sprintf("koupleless_%s/%s/base/heart", b.Env, b.ID), 1, []byte(""))
 	b.client.Pub(fmt.Sprintf("koupleless_%s/%s/base/queryBaseline", b.Env, b.ID), 1, []byte(""))
 }
 
-func (b *MockBase) SendTimeoutMessage() {
+func (b *MockMQTTBase) SendTimeoutMessage() {
 	b.client.Pub(fmt.Sprintf("koupleless_%s/%s/base/health", b.Env, b.ID), 1, []byte("{\"publishTimestamp\":0}"))
 	b.client.Pub(fmt.Sprintf("koupleless_%s/%s/base/biz", b.Env, b.ID), 1, []byte("{\"publishTimestamp\":0}"))
 	b.client.Pub(fmt.Sprintf("koupleless_%s/%s/base/heart", b.Env, b.ID), 1, []byte("{\"publishTimestamp\":0}"))
 	b.client.Pub(fmt.Sprintf("koupleless_%s/%s/base/queryBaseline", b.Env, b.ID), 1, []byte("{\"publishTimestamp\":0}"))
 }
 
-func (b *MockBase) SendFailedMessage() {
+func (b *MockMQTTBase) SendFailedMessage() {
 	b.client.Pub(fmt.Sprintf("koupleless_%s/%s/base/health", b.Env, b.ID), 1, []byte(fmt.Sprintf("{\"publishTimestamp\":%d, \"data\" : {\"code\":\"\"}}", time.Now().UnixMilli())))
 	b.client.Pub(fmt.Sprintf("koupleless_%s/%s/base/biz", b.Env, b.ID), 1, []byte(fmt.Sprintf("{\"publishTimestamp\":%d, \"data\" : {\"code\":\"\"}}", time.Now().UnixMilli())))
 }
 
-func (b *MockBase) QueryBaseline() {
+func (b *MockMQTTBase) QueryBaseline() {
 	queryBaselineBytes, _ := json.Marshal(model.ArkMqttMsg[model.Metadata]{
 		PublishTimestamp: time.Now().UnixMilli(),
 		Data:             b.Metadata,
@@ -261,7 +280,7 @@ func (b *MockBase) QueryBaseline() {
 	b.client.Pub(fmt.Sprintf("koupleless_%s/%s/base/queryBaseline", b.Env, b.ID), 1, queryBaselineBytes)
 }
 
-func (b *MockBase) SetBizState(bizIdentity, state, reason, message string) {
+func (b *MockMQTTBase) SetBizState(bizIdentity, state, reason, message string) {
 	b.Lock()
 	defer b.Unlock()
 	info := b.BizInfos[bizIdentity]
@@ -281,7 +300,7 @@ func (b *MockBase) SetBizState(bizIdentity, state, reason, message string) {
 				Command:    model.CommandInstallBiz,
 				BizName:    info.BizName,
 				BizVersion: info.BizVersion,
-				Response: ark.ArkResponseBase{
+				Response: ark_service.ArkResponse{
 					Code: "SUCCESS",
 					Data: ark.ArkResponseData{
 						Code:    "SUCCESS",
@@ -318,7 +337,7 @@ func (b *MockBase) SetBizState(bizIdentity, state, reason, message string) {
 	b.client.Pub(fmt.Sprintf("koupleless_%s/%s/base/simpleBiz", b.Env, b.ID), 1, msgBytes)
 }
 
-func (b *MockBase) processQueryAllBiz() {
+func (b *MockMQTTBase) processQueryAllBiz() {
 	b.client.Pub(fmt.Sprintf("koupleless_%s/%s/base/biz", b.Env, b.ID), 1, b.getQueryAllBizMsg())
 }
 

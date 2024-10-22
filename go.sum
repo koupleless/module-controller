@@ -106,6 +106,14 @@ github.com/koupleless/virtual-kubelet v0.2.3-0.20241021061822-f38cb80441b5 h1:9W
 github.com/koupleless/virtual-kubelet v0.2.3-0.20241021061822-f38cb80441b5/go.mod h1:W64xRKk/hDpGW6WaJdxtY9KQHg0YKHeilBRm0ARxni4=
 github.com/koupleless/virtual-kubelet v0.2.3-0.20241021091742-192f087091d3 h1:UFrHyGM3pZ4leOYH3Nc34n4m5C3zsSb7tWrKX9mvgvA=
 github.com/koupleless/virtual-kubelet v0.2.3-0.20241021091742-192f087091d3/go.mod h1:W64xRKk/hDpGW6WaJdxtY9KQHg0YKHeilBRm0ARxni4=
+github.com/koupleless/virtual-kubelet v0.2.3-0.20241022033145-67f241b4596b h1:pXsgPhDybjI8W3wDxaqd7o83KZTA+FMM6FH83ZXLeEg=
+github.com/koupleless/virtual-kubelet v0.2.3-0.20241022033145-67f241b4596b/go.mod h1:W64xRKk/hDpGW6WaJdxtY9KQHg0YKHeilBRm0ARxni4=
+github.com/koupleless/virtual-kubelet v0.2.3-0.20241022034231-51bcee2bafbf h1:y6mD5cdsmGzxWA5c6GYJYmE4KsJQXx+2clrefbUkt6Q=
+github.com/koupleless/virtual-kubelet v0.2.3-0.20241022034231-51bcee2bafbf/go.mod h1:W64xRKk/hDpGW6WaJdxtY9KQHg0YKHeilBRm0ARxni4=
+github.com/koupleless/virtual-kubelet v0.2.3-0.20241022035514-1d2c035036ff h1:WGHIG6VUKkoR020k+2/xDITz5qWEQoXWWMmrhU3gN+4=
+github.com/koupleless/virtual-kubelet v0.2.3-0.20241022035514-1d2c035036ff/go.mod h1:W64xRKk/hDpGW6WaJdxtY9KQHg0YKHeilBRm0ARxni4=
+github.com/koupleless/virtual-kubelet v0.2.3-0.20241022085250-273f0a0031e0 h1:YsQGd+k3eZfi1HqsvjzSzoYsfmJ6H+TPhBNN6vFCgLU=
+github.com/koupleless/virtual-kubelet v0.2.3-0.20241022085250-273f0a0031e0/go.mod h1:W64xRKk/hDpGW6WaJdxtY9KQHg0YKHeilBRm0ARxni4=
 github.com/koupleless/virtual-kubelet v0.3.0 h1:IZXlK/ypKAgbWLJ5k4/kr661Q1oz4NKXLSJEB1biK+U=
 github.com/koupleless/virtual-kubelet v0.3.0/go.mod h1:W64xRKk/hDpGW6WaJdxtY9KQHg0YKHeilBRm0ARxni4=
 github.com/kr/pretty v0.2.1/go.mod h1:ipq/a2n7PKx3OHsz4KJII5eveXtPO4qwEXGdVfWzfnI=

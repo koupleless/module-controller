@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"github.com/koupleless/virtual-kubelet/common/log"
 
 	"github.com/go-resty/resty/v2"
 )
@@ -16,7 +17,7 @@ func NewService() *Service {
 	return &Service{client: resty.New()}
 }
 
-func (h *Service) InstallBiz(ctx context.Context, req InstallBizRequest, baseIP string, arkletPort int) (response *ArkResponse, err error) {
+func (h *Service) InstallBiz(ctx context.Context, req InstallBizRequest, baseIP string, arkletPort int) (response ArkResponse, err error) {
 
 	resp, err := h.client.R().
 		SetContext(ctx).
@@ -27,16 +28,15 @@ func (h *Service) InstallBiz(ctx context.Context, req InstallBizRequest, baseIP 
 		return
 	}
 
-	var installResponse *ArkResponse
-
-	if err = json.Unmarshal(resp.Body(), installResponse); err != nil {
+	if err = json.Unmarshal(resp.Body(), &response); err != nil {
+		log.G(ctx).WithError(err).Errorf("Unmarshal InstallBiz response: %s", resp.Body())
 		return
 	}
 
-	return installResponse, nil
+	return response, nil
 }
 
-func (h *Service) UninstallBiz(ctx context.Context, req UninstallBizRequest, baseIP string, arkletPort int) (response *ArkResponse, err error) {
+func (h *Service) UninstallBiz(ctx context.Context, req UninstallBizRequest, baseIP string, arkletPort int) (response ArkResponse, err error) {
 
 	resp, err := h.client.R().
 		SetContext(ctx).
@@ -47,13 +47,12 @@ func (h *Service) UninstallBiz(ctx context.Context, req UninstallBizRequest, bas
 		return
 	}
 
-	var uninstallResponse *ArkResponse
-
-	if err = json.Unmarshal(resp.Body(), uninstallResponse); err != nil {
+	if err = json.Unmarshal(resp.Body(), &response); err != nil {
+		log.G(ctx).WithError(err).Errorf("Unmarshal UnInstallBiz response: %s", resp.Body())
 		return
 	}
 
-	return uninstallResponse, nil
+	return response, nil
 }
 
 func (h *Service) QueryAllBiz(ctx context.Context, baseIP string, arkletPort int) (response QueryAllBizResponse, err error) {

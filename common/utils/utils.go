@@ -227,7 +227,6 @@ func OnBaseUnreachable(ctx context.Context, info vkModel.UnreachableNodeInfo, en
 }
 
 func ExtractNetworkInfoFromNodeInfoData(initData vkModel.NodeInfo) model.NetworkInfo {
-
 	portStr := initData.CustomLabels[model.LabelKeyOfArkletPort]
 
 	port, err := strconv.Atoi(portStr)

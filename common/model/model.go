@@ -30,10 +30,10 @@ type NetworkInfo struct {
 }
 
 type BizOperationResponse struct {
-	Command    string                   `json:"command"`
-	BizName    string                   `json:"bizName"`
-	BizVersion string                   `json:"bizVersion"`
-	Response   *ark_service.ArkResponse `json:"response"`
+	Command    string                  `json:"command"`
+	BizName    string                  `json:"bizName"`
+	BizVersion string                  `json:"bizVersion"`
+	Response   ark_service.ArkResponse `json:"response"`
 }
 
 // QueryBaselineRequest is the request parameters of query baseline func

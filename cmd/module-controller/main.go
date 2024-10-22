@@ -106,6 +106,7 @@ func main() {
 		VPodIdentity:     model.ComponentModule,
 		IsCluster:        isCluster,
 		WorkloadMaxLevel: workloadMaxLevel,
+		VNodeWorkerNum:   32,
 	}
 
 	vc, err := vnode_controller.NewVNodeController(&rcc, []tunnel.Tunnel{

@@ -47,6 +47,9 @@ type HttpTunnel struct {
 	onlineNode map[string]bool
 
 	nodeNetworkInfoOfNodeID map[string]model.NetworkInfo
+
+	queryAllBizLock         sync.Mutex
+	queryAllBizDataOutdated bool
 }
 
 func (h *HttpTunnel) Ready() bool {
@@ -253,6 +256,20 @@ func (h *HttpTunnel) FetchHealthData(ctx context.Context, nodeID string) error {
 }
 
 func (h *HttpTunnel) QueryAllContainerStatusData(ctx context.Context, nodeID string) error {
+	// add a signal to check
+	success := h.queryAllBizLock.TryLock()
+	if !success {
+		// a query is processing
+		h.queryAllBizDataOutdated = true
+		return nil
+	}
+	h.queryAllBizDataOutdated = false
+	defer func() {
+		h.queryAllBizLock.Unlock()
+		if h.queryAllBizDataOutdated {
+			h.QueryAllContainerStatusData(ctx, nodeID)
+		}
+	}()
 
 	networkInfo, ok := h.nodeNetworkInfoOfNodeID[nodeID]
 	if !ok {
@@ -281,10 +298,10 @@ func (h *HttpTunnel) StartContainer(ctx context.Context, nodeID, _ string, conta
 	logger := log.G(ctx).WithField("bizName", bizModel.BizName).WithField("bizVersion", bizModel.BizVersion)
 	logger.Info("InstallModule")
 
-	// uninstall old biz first
-	h.arkService.UninstallBiz(ctx, ark_service.UninstallBizRequest{
-		BizModel: bizModel,
-	}, networkInfo.LocalIP, networkInfo.ArkletPort)
+	//// uninstall old biz first
+	//h.arkService.UninstallBiz(ctx, ark_service.UninstallBizRequest{
+	//	BizModel: bizModel,
+	//}, networkInfo.LocalIP, networkInfo.ArkletPort)
 
 	// then install current version
 	bizOperationResponse := model.BizOperationResponse{

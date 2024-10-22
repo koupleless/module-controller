@@ -277,6 +277,7 @@ func TestTranslateHeartBeatDataToNodeInfo(t *testing.T) {
 				NetworkInfo: model.NetworkInfo{
 					LocalIP:       "192.168.1.1",
 					LocalHostName: "host1",
+					ArkletPort:    1238,
 				},
 			},
 			expected: vkModel.NodeInfo{
@@ -288,6 +289,9 @@ func TestTranslateHeartBeatDataToNodeInfo(t *testing.T) {
 				NetworkInfo: vkModel.NetworkInfo{
 					NodeIP:   "192.168.1.1",
 					HostName: "host1",
+				},
+				CustomLabels: map[string]string{
+					model.LabelKeyOfArkletPort: "1238",
 				},
 			},
 		},
@@ -313,6 +317,7 @@ func TestTranslateHeartBeatDataToNodeInfo(t *testing.T) {
 					NodeIP:   "192.168.1.2",
 					HostName: "host2",
 				},
+				CustomLabels: map[string]string{},
 			},
 		},
 	}
@@ -625,9 +630,9 @@ func TestTranslateSimpleBizDataToArkBizInfo(t *testing.T) {
 
 func TestGetArkBizStateFromSimpleBizState(t *testing.T) {
 	testCases := map[string]string{
-		"2":   "RESOLVED",
-		"3":   "ACTIVATED",
-		"4":   "DEACTIVATED",
+		"2":   "resolved",
+		"3":   "activated",
+		"4":   "deactivated",
 		"123": "",
 	}
 	for input, expected := range testCases {
@@ -646,4 +651,13 @@ func TestGetLatestState_ChangeTimeLenLt3(t *testing.T) {
 	assert.Zero(t, updatedTime.UnixMilli())
 	assert.Empty(t, reason)
 	assert.Empty(t, message)
+}
+
+func TestExtractNetworkInfoFromNodeInfoData(t *testing.T) {
+	data := ExtractNetworkInfoFromNodeInfoData(vkModel.NodeInfo{
+		CustomLabels: map[string]string{
+			model.LabelKeyOfArkletPort: ";",
+		},
+	})
+	assert.Equal(t, data.ArkletPort, 1238)
 }

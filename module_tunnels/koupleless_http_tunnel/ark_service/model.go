@@ -11,7 +11,18 @@ type UninstallBizRequest struct {
 }
 
 type ArkResponse struct {
-	ark.ArkResponseBase
+	// Code is the response code
+	Code string `json:"code"`
+
+	// Data is the response data
+	Data ark.ArkResponseData `json:"data"`
+
+	// Message is the error message
+	Message string `json:"message"`
+
+	// ErrorStackTrace is the error stack trace
+	ErrorStackTrace string `json:"errorStackTrace"`
+
 	BaseID string `json:"baseID"`
 }
 
