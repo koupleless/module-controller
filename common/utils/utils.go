@@ -214,7 +214,7 @@ func OnBaseUnreachable(ctx context.Context, info vkModel.UnreachableNodeInfo, en
 	nodeName := utils.FormatNodeName(info.NodeID, env)
 	err := k8sClient.Get(ctx, client.ObjectKey{Name: nodeName}, &node)
 	logger := log.G(ctx).WithField("nodeID", info.NodeID).WithField("func", "OnNodeNotReady")
-	if err != nil {
+	if err == nil {
 		// delete node from api server
 		logger.Info("DeleteBaseNode")
 		k8sClient.Delete(ctx, &node)

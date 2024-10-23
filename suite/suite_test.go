@@ -8,11 +8,13 @@ import (
 	"github.com/koupleless/module_controller/module_tunnels/koupleless_http_tunnel"
 	"github.com/koupleless/module_controller/module_tunnels/koupleless_mqtt_tunnel"
 	"github.com/koupleless/virtual-kubelet/common/log"
+	logruslogger "github.com/koupleless/virtual-kubelet/common/log/logrus"
 	"github.com/koupleless/virtual-kubelet/controller/vnode_controller"
 	"github.com/koupleless/virtual-kubelet/model"
 	"github.com/koupleless/virtual-kubelet/tunnel"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	"github.com/sirupsen/logrus"
 	"github.com/wind-c/comqtt/v2/mqtt"
 	"github.com/wind-c/comqtt/v2/mqtt/hooks/auth"
 	"github.com/wind-c/comqtt/v2/mqtt/listeners"
@@ -60,6 +62,7 @@ var _ = BeforeSuite(func() {
 	os.Setenv("MQTT_CLIENT_PREFIX", "suite-test")
 
 	logf.SetLogger(zap.New(zap.WriteTo(GinkgoWriter), zap.UseDevMode(true)))
+	log.L = logruslogger.FromLogrus(logrus.NewEntry(logrus.StandardLogger()))
 
 	By("bootstrapping suite environment")
 	testEnv = &envtest.Environment{}
@@ -96,6 +99,7 @@ var _ = BeforeSuite(func() {
 	mqttTunnel.Cache = k8sManager.GetCache()
 	httpTunnel.Client = k8sManager.GetClient()
 	httpTunnel.Cache = k8sManager.GetCache()
+	httpTunnel.Port = 7777
 
 	tunnels := []tunnel.Tunnel{
 		&mqttTunnel,
@@ -105,9 +109,10 @@ var _ = BeforeSuite(func() {
 	ctx := context.Background()
 
 	vnodeController, err := vnode_controller.NewVNodeController(&model.BuildVNodeControllerConfig{
-		ClientID:     clientID,
-		Env:          env,
-		VPodIdentity: model2.ComponentModule,
+		ClientID:       clientID,
+		Env:            env,
+		VPodIdentity:   model2.ComponentModule,
+		VNodeWorkerNum: 4,
 	}, tunnels)
 	Expect(err).ToNot(HaveOccurred())
 

@@ -24,8 +24,8 @@ type MockMQTTBase struct {
 	Baseline  []ark.BizModel
 	client    *mqtt.Client
 
-	exit        chan struct{}
-	unreachable chan struct{}
+	exit      chan struct{}
+	reachable chan struct{}
 }
 
 func NewMockMqttBase(name, version, id, env string) *MockMQTTBase {
@@ -37,9 +37,9 @@ func NewMockMqttBase(name, version, id, env string) *MockMQTTBase {
 			Name:    name,
 			Version: version,
 		},
-		BizInfos:    make(map[string]ark.ArkBizInfo),
-		exit:        make(chan struct{}),
-		unreachable: make(chan struct{}),
+		BizInfos:  make(map[string]ark.ArkBizInfo),
+		exit:      make(chan struct{}),
+		reachable: make(chan struct{}),
 	}
 }
 
@@ -52,16 +52,17 @@ func (b *MockMQTTBase) Exit() {
 }
 
 func (b *MockMQTTBase) Unreachable() {
-	select {
-	case <-b.unreachable:
-	default:
-		close(b.unreachable)
-	}
+	b.reachable = make(chan struct{})
 }
 
 func (b *MockMQTTBase) Start(ctx context.Context) error {
-	b.unreachable = make(chan struct{})
+	select {
+	case <-b.reachable:
+	default:
+		close(b.reachable)
+	}
 	b.exit = make(chan struct{})
+	b.CurrState = "ACTIVATED"
 	var err error
 	b.client, err = mqtt.NewMqttClient(&mqtt.ClientConfig{
 		Broker:   "localhost",
@@ -169,22 +170,21 @@ func (b *MockMQTTBase) getQueryAllBizMsg() []byte {
 func (b *MockMQTTBase) processCommand(_ paho.Client, msg paho.Message) {
 	defer msg.Ack()
 	select {
-	case <-b.unreachable:
-		// just return
-		return
+	case <-b.reachable:
+		split := strings.Split(msg.Topic(), "/")
+		command := split[len(split)-1]
+		switch command {
+		case model.CommandHealth:
+			go b.processHealth()
+		case model.CommandInstallBiz:
+			go b.processInstallBiz(msg.Payload())
+		case model.CommandUnInstallBiz:
+			go b.processUnInstallBiz(msg.Payload())
+		case model.CommandQueryAllBiz:
+			go b.processQueryAllBiz()
+		}
 	default:
-	}
-	split := strings.Split(msg.Topic(), "/")
-	command := split[len(split)-1]
-	switch command {
-	case model.CommandHealth:
-		go b.processHealth()
-	case model.CommandInstallBiz:
-		go b.processInstallBiz(msg.Payload())
-	case model.CommandUnInstallBiz:
-		go b.processUnInstallBiz(msg.Payload())
-	case model.CommandQueryAllBiz:
-		go b.processQueryAllBiz()
+		return
 	}
 }
 

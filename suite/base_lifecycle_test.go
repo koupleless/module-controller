@@ -15,19 +15,19 @@ var _ = Describe("Base Lifecycle Test", func() {
 
 	ctx := context.Background()
 
-	nodeID := "test-base"
-	mockBase := NewMockMqttBase("test-base", "1.0.0", nodeID, env)
+	mqttNodeID := "test-mqtt-base"
+	mockMqttBase := NewMockMqttBase("test-mqtt-base", "1.0.0", mqttNodeID, env)
 
-	nodeID2 := "test-base-2"
-	mockBase2 := NewMockMqttBase("test-base-2", "1.0.0", nodeID2, env)
+	httpNodeID := "test-http-base"
+	mockHttpBase := NewMockHttpBase("test-http-base", "1.0.0", httpNodeID, env, 1238)
 
-	Context("base online and deactive finally", func() {
+	Context("mqtt base online and deactive finally", func() {
 		It("base should become a ready vnode eventually", func() {
-			go mockBase.Start(ctx)
+			go mockMqttBase.Start(ctx)
 			vnode := &v1.Node{}
 			Eventually(func() bool {
 				err := k8sClient.Get(ctx, types.NamespacedName{
-					Name: utils.FormatNodeName(nodeID, env),
+					Name: utils.FormatNodeName(mqttNodeID, env),
 				}, vnode)
 				vnodeReady := false
 				for _, cond := range vnode.Status.Conditions {
@@ -41,24 +41,24 @@ var _ = Describe("Base Lifecycle Test", func() {
 		})
 
 		It("base offline with deactive message and finally exit", func() {
-			mockBase.Exit()
+			mockMqttBase.Exit()
 			Eventually(func() bool {
 				vnode := &v1.Node{}
 				err := k8sClient.Get(ctx, types.NamespacedName{
-					Name: utils.FormatNodeName(nodeID, env),
+					Name: utils.FormatNodeName(mqttNodeID, env),
 				}, vnode)
 				return errors.IsNotFound(err)
 			}, time.Second*50, time.Second).Should(BeTrue())
 		})
 	})
 
-	Context("base online and unreachable finally", func() {
+	Context("mqtt base online and unreachable finally", func() {
 		It("base should become a ready vnode eventually", func() {
-			go mockBase2.Start(ctx)
+			go mockMqttBase.Start(ctx)
 			vnode := &v1.Node{}
 			Eventually(func() bool {
 				err := k8sClient.Get(ctx, types.NamespacedName{
-					Name: utils.FormatNodeName(nodeID2, env),
+					Name: utils.FormatNodeName(mqttNodeID, env),
 				}, vnode)
 				vnodeReady := false
 				for _, cond := range vnode.Status.Conditions {
@@ -72,14 +72,113 @@ var _ = Describe("Base Lifecycle Test", func() {
 		})
 
 		It("base unreachable finally exit", func() {
-			mockBase2.Unreachable()
+			mockMqttBase.Unreachable()
 			Eventually(func() bool {
 				vnode := &v1.Node{}
 				err := k8sClient.Get(ctx, types.NamespacedName{
-					Name: utils.FormatNodeName(nodeID2, env),
+					Name: utils.FormatNodeName(mqttNodeID, env),
 				}, vnode)
 				return errors.IsNotFound(err)
 			}, time.Second*50, time.Second).Should(BeTrue())
+
+			mockMqttBase.Exit()
+		})
+	})
+
+	Context("http base online and deactive finally", func() {
+		It("base should become a ready vnode eventually", func() {
+			go mockHttpBase.Start(ctx)
+			vnode := &v1.Node{}
+			Eventually(func() bool {
+				err := k8sClient.Get(ctx, types.NamespacedName{
+					Name: utils.FormatNodeName(httpNodeID, env),
+				}, vnode)
+				vnodeReady := false
+				for _, cond := range vnode.Status.Conditions {
+					if cond.Type == v1.NodeReady {
+						vnodeReady = cond.Status == v1.ConditionTrue
+						break
+					}
+				}
+				return err == nil && vnodeReady
+			}, time.Second*50, time.Second).Should(BeTrue())
+		})
+
+		It("base offline with deactive message and finally exit", func() {
+			mockHttpBase.Exit()
+			Eventually(func() bool {
+				vnode := &v1.Node{}
+				err := k8sClient.Get(ctx, types.NamespacedName{
+					Name: utils.FormatNodeName(httpNodeID, env),
+				}, vnode)
+				return errors.IsNotFound(err)
+			}, time.Second*50, time.Second).Should(BeTrue())
+		})
+	})
+
+	Context("http base online and unreachable finally", func() {
+		It("base should become a ready vnode eventually", func() {
+			go mockHttpBase.Start(ctx)
+			vnode := &v1.Node{}
+			Eventually(func() bool {
+				err := k8sClient.Get(ctx, types.NamespacedName{
+					Name: utils.FormatNodeName(httpNodeID, env),
+				}, vnode)
+				vnodeReady := false
+				for _, cond := range vnode.Status.Conditions {
+					if cond.Type == v1.NodeReady {
+						vnodeReady = cond.Status == v1.ConditionTrue
+						break
+					}
+				}
+				return err == nil && vnodeReady
+			}, time.Second*50, time.Second).Should(BeTrue())
+		})
+
+		It("base unreachable finally exit", func() {
+			mockHttpBase.Unreachable()
+			Eventually(func() bool {
+				vnode := &v1.Node{}
+				err := k8sClient.Get(ctx, types.NamespacedName{
+					Name: utils.FormatNodeName(httpNodeID, env),
+				}, vnode)
+				return errors.IsNotFound(err)
+			}, time.Second*50, time.Second).Should(BeTrue())
+
+			mockHttpBase.Exit()
+		})
+	})
+
+	Context("http base online and change base id finally", func() {
+		It("base should become a ready vnode eventually", func() {
+			go mockHttpBase.Start(ctx)
+			vnode := &v1.Node{}
+			Eventually(func() bool {
+				err := k8sClient.Get(ctx, types.NamespacedName{
+					Name: utils.FormatNodeName(httpNodeID, env),
+				}, vnode)
+				vnodeReady := false
+				for _, cond := range vnode.Status.Conditions {
+					if cond.Type == v1.NodeReady {
+						vnodeReady = cond.Status == v1.ConditionTrue
+						break
+					}
+				}
+				return err == nil && vnodeReady
+			}, time.Second*50, time.Second).Should(BeTrue())
+		})
+
+		It("base id changed finally exit", func() {
+			mockHttpBase.ID = "changed-base-id"
+			Eventually(func() bool {
+				vnode := &v1.Node{}
+				err := k8sClient.Get(ctx, types.NamespacedName{
+					Name: utils.FormatNodeName(httpNodeID, env),
+				}, vnode)
+				return errors.IsNotFound(err)
+			}, time.Second*50, time.Second).Should(BeTrue())
+
+			mockHttpBase.Exit()
 		})
 	})
 

@@ -183,7 +183,7 @@ func (h *HttpTunnel) startBaseDiscovery(ctx context.Context) {
 		}
 	}()
 
-	logger.Infof("http base discovery server started, listening on Port %d", h.Port)
+	logger.Infof("http base discovery server started, listening on port %d", h.Port)
 
 	defer func() {
 		shutdownCtx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
