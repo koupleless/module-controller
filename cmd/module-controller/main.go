@@ -72,6 +72,13 @@ func main() {
 
 	if err != nil {
 		log.G(ctx).WithError(err).Error("failed to parse WORKLOAD_MAX_LEVEL, will be set to 3 default")
+		workloadMaxLevel = 3
+	}
+
+	vnodeWorkerNum, err := strconv.Atoi(utils.GetEnv("VNODE_WORKER_NUM", "8"))
+	if err != nil {
+		log.G(ctx).WithError(err).Error("failed to parse VNODE_WORKER_NUM, will be set to 8 default")
+		vnodeWorkerNum = 8
 	}
 
 	kubeConfig := config.GetConfigOrDie()
@@ -106,7 +113,7 @@ func main() {
 		VPodIdentity:     model.ComponentModule,
 		IsCluster:        isCluster,
 		WorkloadMaxLevel: workloadMaxLevel,
-		VNodeWorkerNum:   32,
+		VNodeWorkerNum:   vnodeWorkerNum,
 	}
 
 	vc, err := vnode_controller.NewVNodeController(&rcc, []tunnel.Tunnel{

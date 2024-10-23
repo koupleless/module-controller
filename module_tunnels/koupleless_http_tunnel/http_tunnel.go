@@ -117,12 +117,14 @@ func (h *HttpTunnel) Start(ctx context.Context, clientID, env string) (err error
 func (h *HttpTunnel) startBaseDiscovery(ctx context.Context) {
 	logger := log.G(ctx)
 	// start a simple http server to handle base discovery, exit when ctx done
+	mux := http.NewServeMux()
 	server := &http.Server{
-		Addr: fmt.Sprintf(":%d", h.Port),
+		Addr:    fmt.Sprintf(":%d", h.Port),
+		Handler: mux,
 	}
 
 	// handle heartbeat post request
-	http.HandleFunc("/heartbeat", func(w http.ResponseWriter, r *http.Request) {
+	mux.HandleFunc("/heartbeat", func(w http.ResponseWriter, r *http.Request) {
 		if r.Method != http.MethodPost {
 			w.WriteHeader(http.StatusMethodNotAllowed)
 			return
@@ -136,15 +138,16 @@ func (h *HttpTunnel) startBaseDiscovery(ctx context.Context) {
 			w.Write([]byte(err.Error()))
 			return
 		}
-
+		h.Lock()
 		h.nodeNetworkInfoOfNodeID[heartbeatData.BaseID] = heartbeatData.NetworkInfo
+		h.Unlock()
 		h.onBaseDiscovered(heartbeatData.BaseID, utils.TranslateHeartBeatDataToNodeInfo(heartbeatData), h)
 
 		w.WriteHeader(http.StatusOK)
 		w.Write([]byte("SUCCESS"))
 	})
 
-	http.HandleFunc("/queryBaseline", func(w http.ResponseWriter, r *http.Request) {
+	mux.HandleFunc("/queryBaseline", func(w http.ResponseWriter, r *http.Request) {
 		if r.Method != http.MethodPost {
 			w.WriteHeader(http.StatusMethodNotAllowed)
 			return
@@ -182,8 +185,13 @@ func (h *HttpTunnel) startBaseDiscovery(ctx context.Context) {
 
 	logger.Infof("http base discovery server started, listening on Port %d", h.Port)
 
-	defer server.Close()
-
+	defer func() {
+		shutdownCtx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+		defer cancel()
+		if err := server.Shutdown(shutdownCtx); err != nil {
+			logger.WithError(err).Error("error shutting down http server")
+		}
+	}()
 	<-ctx.Done()
 
 }
@@ -239,7 +247,9 @@ func (h *HttpTunnel) bizOperationResponseCallback(nodeID string, data model.BizO
 }
 
 func (h *HttpTunnel) FetchHealthData(ctx context.Context, nodeID string) error {
+	h.Lock()
 	networkInfo, ok := h.nodeNetworkInfoOfNodeID[nodeID]
+	h.Unlock()
 	if !ok {
 		return errors.New("network info not found")
 	}
@@ -271,7 +281,9 @@ func (h *HttpTunnel) QueryAllContainerStatusData(ctx context.Context, nodeID str
 		}
 	}()
 
+	h.Lock()
 	networkInfo, ok := h.nodeNetworkInfoOfNodeID[nodeID]
+	h.Unlock()
 	if !ok {
 		return errors.New("network info not found")
 	}

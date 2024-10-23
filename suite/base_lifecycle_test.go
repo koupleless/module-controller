@@ -18,7 +18,7 @@ var _ = Describe("Base Lifecycle Test", func() {
 	nodeID := "test-base"
 	mockBase := NewMockMqttBase("test-base", "1.0.0", nodeID, env)
 
-	nodeID2 := "test-base"
+	nodeID2 := "test-base-2"
 	mockBase2 := NewMockMqttBase("test-base-2", "1.0.0", nodeID2, env)
 
 	Context("base online and deactive finally", func() {

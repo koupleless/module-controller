@@ -214,16 +214,15 @@ func OnBaseUnreachable(ctx context.Context, info vkModel.UnreachableNodeInfo, en
 	nodeName := utils.FormatNodeName(info.NodeID, env)
 	err := k8sClient.Get(ctx, client.ObjectKey{Name: nodeName}, &node)
 	logger := log.G(ctx).WithField("nodeID", info.NodeID).WithField("func", "OnNodeNotReady")
-	retryTimes := 0
-	for err != nil && !apiErrors.IsNotFound(err) {
-		logger.WithError(err).WithField("retry", retryTimes).Error("Failed to get node")
-		retryTimes++
-		err = k8sClient.Get(ctx, client.ObjectKey{Name: nodeName}, &node)
-		time.Sleep(500 * time.Duration(retryTimes) * time.Millisecond)
+	if err != nil {
+		// delete node from api server
+		logger.Info("DeleteBaseNode")
+		k8sClient.Delete(ctx, &node)
+	} else if apiErrors.IsNotFound(err) {
+		logger.Info("Node not found, skipping delete operation")
+	} else {
+		logger.WithError(err).Error("Failed to get node, cannot delete")
 	}
-	// delete node from api server
-	logger.Info("DeleteBaseNode")
-	k8sClient.Delete(ctx, &node)
 }
 
 func ExtractNetworkInfoFromNodeInfoData(initData vkModel.NodeInfo) model.NetworkInfo {

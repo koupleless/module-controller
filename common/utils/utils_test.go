@@ -1,6 +1,7 @@
 package utils
 
 import (
+	"context"
 	"fmt"
 	"github.com/koupleless/arkctl/v1/service/ark"
 	"github.com/koupleless/module_controller/common/model"
@@ -9,6 +10,7 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
 	"reflect"
+	"sigs.k8s.io/controller-runtime/pkg/client/fake"
 	"testing"
 	"time"
 )
@@ -660,4 +662,8 @@ func TestExtractNetworkInfoFromNodeInfoData(t *testing.T) {
 		},
 	})
 	assert.Equal(t, data.ArkletPort, 1238)
+}
+
+func TestOnBaseUnreachable(t *testing.T) {
+	OnBaseUnreachable(context.Background(), vkModel.UnreachableNodeInfo{}, "test", fake.NewFakeClient())
 }

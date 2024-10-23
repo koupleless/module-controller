@@ -28,6 +28,11 @@ func (h *Service) InstallBiz(ctx context.Context, req InstallBizRequest, baseIP 
 		return
 	}
 
+	if resp == nil {
+		err = fmt.Errorf("received nil response from the server")
+		return
+	}
+
 	if err = json.Unmarshal(resp.Body(), &response); err != nil {
 		log.G(ctx).WithError(err).Errorf("Unmarshal InstallBiz response: %s", resp.Body())
 		return
@@ -44,6 +49,11 @@ func (h *Service) UninstallBiz(ctx context.Context, req UninstallBizRequest, bas
 		Post(fmt.Sprintf("http://%s:%d/uninstallBiz", baseIP, arkletPort))
 
 	if err != nil {
+		return
+	}
+
+	if resp == nil {
+		err = fmt.Errorf("received nil response from the server")
 		return
 	}
 
@@ -66,7 +76,13 @@ func (h *Service) QueryAllBiz(ctx context.Context, baseIP string, arkletPort int
 		return
 	}
 
+	if resp == nil {
+		err = fmt.Errorf("received nil response from the server")
+		return
+	}
+
 	if err = json.Unmarshal(resp.Body(), &response); err != nil {
+		log.G(ctx).WithError(err).Errorf("Unmarshal QueryAllBiz response: %s", resp.Body())
 		return
 	}
 
@@ -84,7 +100,13 @@ func (h *Service) Health(ctx context.Context, baseIP string, arkletPort int) (re
 		return
 	}
 
+	if resp == nil {
+		err = fmt.Errorf("received nil response from the server")
+		return
+	}
+
 	if err = json.Unmarshal(resp.Body(), &response); err != nil {
+		log.G(ctx).WithError(err).Errorf("Unmarshal Health response: %s", resp.Body())
 		return
 	}
 
