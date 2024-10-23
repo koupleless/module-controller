@@ -277,7 +277,7 @@ func (h *HttpTunnel) QueryAllContainerStatusData(ctx context.Context, nodeID str
 	defer func() {
 		h.queryAllBizLock.Unlock()
 		if h.queryAllBizDataOutdated {
-			h.QueryAllContainerStatusData(ctx, nodeID)
+			go h.QueryAllContainerStatusData(ctx, nodeID)
 		}
 	}()
 

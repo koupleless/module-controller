@@ -23,6 +23,8 @@ var _ = Describe("Base Lifecycle Test", func() {
 
 	Context("mqtt base online and deactive finally", func() {
 		It("base should become a ready vnode eventually", func() {
+			time.Sleep(time.Second)
+
 			go mockMqttBase.Start(ctx)
 			vnode := &v1.Node{}
 			Eventually(func() bool {
@@ -54,6 +56,8 @@ var _ = Describe("Base Lifecycle Test", func() {
 
 	Context("mqtt base online and unreachable finally", func() {
 		It("base should become a ready vnode eventually", func() {
+			time.Sleep(time.Second)
+
 			go mockMqttBase.Start(ctx)
 			vnode := &v1.Node{}
 			Eventually(func() bool {
@@ -87,6 +91,8 @@ var _ = Describe("Base Lifecycle Test", func() {
 
 	Context("http base online and deactive finally", func() {
 		It("base should become a ready vnode eventually", func() {
+			time.Sleep(time.Second)
+
 			go mockHttpBase.Start(ctx)
 			vnode := &v1.Node{}
 			Eventually(func() bool {
@@ -118,6 +124,8 @@ var _ = Describe("Base Lifecycle Test", func() {
 
 	Context("http base online and unreachable finally", func() {
 		It("base should become a ready vnode eventually", func() {
+			time.Sleep(time.Second)
+
 			go mockHttpBase.Start(ctx)
 			vnode := &v1.Node{}
 			Eventually(func() bool {
@@ -151,6 +159,7 @@ var _ = Describe("Base Lifecycle Test", func() {
 
 	Context("http base online and change base id finally", func() {
 		It("base should become a ready vnode eventually", func() {
+			time.Sleep(time.Second)
 			go mockHttpBase.Start(ctx)
 			vnode := &v1.Node{}
 			Eventually(func() bool {
