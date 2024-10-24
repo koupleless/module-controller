@@ -11,12 +11,10 @@ import (
 	"github.com/koupleless/module_controller/module_tunnels"
 	"github.com/koupleless/module_controller/module_tunnels/koupleless_mqtt_tunnel/mqtt"
 	"github.com/koupleless/virtual-kubelet/common/log"
-	vkUtils "github.com/koupleless/virtual-kubelet/common/utils"
 	vkModel "github.com/koupleless/virtual-kubelet/model"
 	"github.com/koupleless/virtual-kubelet/tunnel"
 	"github.com/sirupsen/logrus"
 	corev1 "k8s.io/api/core/v1"
-	"k8s.io/apimachinery/pkg/api/errors"
 	"sigs.k8s.io/controller-runtime/pkg/cache"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sync"
@@ -52,7 +50,7 @@ func (m *MqttTunnel) GetContainerUniqueKey(_ string, container *corev1.Container
 	return utils.GetBizIdentity(container.Name, utils.GetBizVersionFromContainer(container))
 }
 
-func (m *MqttTunnel) OnNodeStart(ctx context.Context, nodeID string) {
+func (m *MqttTunnel) OnNodeStart(ctx context.Context, nodeID string, _ vkModel.NodeInfo) {
 	m.mqttClient.Sub(fmt.Sprintf(model.BaseHealthTopic, m.env, nodeID), mqtt.Qos1, m.healthMsgCallback)
 
 	m.mqttClient.Sub(fmt.Sprintf(model.BaseSimpleBizTopic, m.env, nodeID), mqtt.Qos1, m.bizMsgCallback)
@@ -80,19 +78,7 @@ func (m *MqttTunnel) OnNodeStop(ctx context.Context, nodeID string) {
 }
 
 func (m *MqttTunnel) OnNodeNotReady(ctx context.Context, info vkModel.UnreachableNodeInfo) {
-	// base not ready, delete from api server
-	node := corev1.Node{}
-	err := m.Client.Get(ctx, client.ObjectKey{Name: vkUtils.FormatNodeName(info.NodeID, m.env)}, &node)
-	logger := log.G(ctx).WithField("nodeID", info.NodeID).WithField("func", "OnNodeNotReady")
-	retryTimes := 0
-	for err != nil && !errors.IsNotFound(err) {
-		logger.WithError(err).WithField("retry", retryTimes).Error("Failed to get node")
-		retryTimes++
-		err = m.Client.Get(ctx, client.ObjectKey{Name: vkUtils.FormatNodeName(info.NodeID, m.env)}, &node)
-		time.Sleep(500 * time.Duration(retryTimes) * time.Millisecond)
-	}
-	logger.Info("DeleteBaseNode")
-	m.Client.Delete(ctx, &node)
+	utils.OnBaseUnreachable(ctx, info, m.env, m.Client)
 }
 
 func (m *MqttTunnel) Key() string {
@@ -134,7 +120,7 @@ func (m *MqttTunnel) Start(ctx context.Context, clientID, env string) (err error
 			client.Subscribe(fmt.Sprintf(model.BaseHeartBeatTopic, m.env), mqtt.Qos1, m.heartBeatMsgCallback)
 			client.Subscribe(fmt.Sprintf(model.BaseQueryBaselineTopic, m.env), mqtt.Qos1, m.queryBaselineMsgCallback)
 			for nodeId, _ := range m.onlineNode {
-				m.OnNodeStart(ctx, nodeId)
+				m.OnNodeStart(ctx, nodeId, vkModel.NodeInfo{})
 			}
 		},
 	})

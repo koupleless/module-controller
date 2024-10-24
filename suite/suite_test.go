@@ -5,29 +5,30 @@ import (
 	model2 "github.com/koupleless/module_controller/common/model"
 	"github.com/koupleless/module_controller/controller/module_deployment_controller"
 	"github.com/koupleless/module_controller/module_tunnels"
+	"github.com/koupleless/module_controller/module_tunnels/koupleless_http_tunnel"
 	"github.com/koupleless/module_controller/module_tunnels/koupleless_mqtt_tunnel"
 	"github.com/koupleless/virtual-kubelet/common/log"
+	logruslogger "github.com/koupleless/virtual-kubelet/common/log/logrus"
 	"github.com/koupleless/virtual-kubelet/controller/vnode_controller"
 	"github.com/koupleless/virtual-kubelet/model"
 	"github.com/koupleless/virtual-kubelet/tunnel"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	"github.com/sirupsen/logrus"
 	"github.com/wind-c/comqtt/v2/mqtt"
 	"github.com/wind-c/comqtt/v2/mqtt/hooks/auth"
 	"github.com/wind-c/comqtt/v2/mqtt/listeners"
 	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/client-go/kubernetes/scheme"
+	"k8s.io/client-go/rest"
 	"os"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
-	"testing"
-	"time"
-
-	"k8s.io/client-go/kubernetes/scheme"
-	"k8s.io/client-go/rest"
 	"sigs.k8s.io/controller-runtime/pkg/envtest"
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
 	"sigs.k8s.io/controller-runtime/pkg/log/zap"
+	"testing"
 )
 
 // These tests use Ginkgo (BDD-style Go testing framework). Refer to
@@ -36,7 +37,8 @@ import (
 var cfg *rest.Config
 var testEnv *envtest.Environment
 var k8sClient client.Client
-var tl koupleless_mqtt_tunnel.MqttTunnel
+var mqttTunnel koupleless_mqtt_tunnel.MqttTunnel
+var httpTunnel koupleless_http_tunnel.HttpTunnel
 var mqttServer *mqtt.Server
 
 const (
@@ -60,6 +62,7 @@ var _ = BeforeSuite(func() {
 	os.Setenv("MQTT_CLIENT_PREFIX", "suite-test")
 
 	logf.SetLogger(zap.New(zap.WriteTo(GinkgoWriter), zap.UseDevMode(true)))
+	log.L = logruslogger.FromLogrus(logrus.NewEntry(logrus.StandardLogger()))
 
 	By("bootstrapping suite environment")
 	testEnv = &envtest.Environment{}
@@ -92,23 +95,31 @@ var _ = BeforeSuite(func() {
 	})
 	Expect(err).ToNot(HaveOccurred())
 
+	mqttTunnel.Client = k8sManager.GetClient()
+	mqttTunnel.Cache = k8sManager.GetCache()
+	httpTunnel.Client = k8sManager.GetClient()
+	httpTunnel.Cache = k8sManager.GetCache()
+	httpTunnel.Port = 7777
+
 	tunnels := []tunnel.Tunnel{
-		&tl,
+		&mqttTunnel,
+		&httpTunnel,
 	}
 
 	ctx := context.Background()
 
 	vnodeController, err := vnode_controller.NewVNodeController(&model.BuildVNodeControllerConfig{
-		ClientID:     clientID,
-		Env:          env,
-		VPodIdentity: model2.ComponentModule,
+		ClientID:       clientID,
+		Env:            env,
+		VPodIdentity:   model2.ComponentModule,
+		VNodeWorkerNum: 4,
 	}, tunnels)
 	Expect(err).ToNot(HaveOccurred())
 
 	err = vnodeController.SetupWithManager(ctx, k8sManager)
 
 	moduleDeploymentController, err := module_deployment_controller.NewModuleDeploymentController(env, []module_tunnels.ModuleTunnel{
-		&tl,
+		&mqttTunnel,
 	})
 	Expect(err).ToNot(HaveOccurred())
 
@@ -133,7 +144,7 @@ var _ = BeforeSuite(func() {
 		Expect(err).ToNot(HaveOccurred())
 	}()
 
-	time.Sleep(5 * time.Second)
+	k8sManager.GetCache().WaitForCacheSync(ctx)
 })
 
 var _ = AfterSuite(func() {

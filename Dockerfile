@@ -34,5 +34,6 @@ COPY --from=builder /workspace/module_controller .
 
 EXPOSE 9090
 EXPOSE 8080
+EXPOSE 7777
 
 ENTRYPOINT ["./module_controller"]
