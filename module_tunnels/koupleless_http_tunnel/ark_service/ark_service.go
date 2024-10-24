@@ -3,6 +3,7 @@ package ark_service
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"github.com/koupleless/virtual-kubelet/common/log"
 
@@ -25,11 +26,13 @@ func (h *Service) InstallBiz(ctx context.Context, req InstallBizRequest, baseIP 
 		Post(fmt.Sprintf("http://%s:%d/installBiz", baseIP, arkletPort))
 
 	if err != nil {
+		log.G(ctx).WithError(err).Errorf("installBiz request failed")
 		return
 	}
 
 	if resp == nil {
-		err = fmt.Errorf("received nil response from the server")
+		err = errors.New("received nil response from the server")
+		log.G(ctx).WithError(err).Errorf("installBiz request failed")
 		return
 	}
 
@@ -49,11 +52,13 @@ func (h *Service) UninstallBiz(ctx context.Context, req UninstallBizRequest, bas
 		Post(fmt.Sprintf("http://%s:%d/uninstallBiz", baseIP, arkletPort))
 
 	if err != nil {
+		log.G(ctx).WithError(err).Errorf("uninstall request failed")
 		return
 	}
 
 	if resp == nil {
-		err = fmt.Errorf("received nil response from the server")
+		err = errors.New("received nil response from the server")
+		log.G(ctx).WithError(err).Errorf("uninstall request failed")
 		return
 	}
 
@@ -73,11 +78,13 @@ func (h *Service) QueryAllBiz(ctx context.Context, baseIP string, arkletPort int
 		Post(fmt.Sprintf("http://%s:%d/queryAllBiz", baseIP, arkletPort))
 
 	if err != nil {
+		log.G(ctx).WithError(err).Errorf("queryAllBiz request failed")
 		return
 	}
 
 	if resp == nil {
-		err = fmt.Errorf("received nil response from the server")
+		err = errors.New("received nil response from the server")
+		log.G(ctx).WithError(err).Errorf("queryAllBiz request failed")
 		return
 	}
 
@@ -97,11 +104,13 @@ func (h *Service) Health(ctx context.Context, baseIP string, arkletPort int) (re
 		Post(fmt.Sprintf("http://%s:%d/health", baseIP, arkletPort))
 
 	if err != nil {
+		log.G(ctx).WithError(err).Errorf("health request failed")
 		return
 	}
 
 	if resp == nil {
-		err = fmt.Errorf("received nil response from the server")
+		err = errors.New("received nil response from the server")
+		log.G(ctx).WithError(err).Errorf("health request failed")
 		return
 	}
 

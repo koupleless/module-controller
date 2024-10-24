@@ -85,7 +85,7 @@ func main() {
 	mgr, err := manager.New(kubeConfig, manager.Options{
 		Cache: cache.Options{},
 		Metrics: server.Options{
-			BindAddress: "0",
+			BindAddress: ":9090",
 		},
 	})
 
@@ -96,15 +96,29 @@ func main() {
 
 	tracker.SetTracker(&tracker.DefaultTracker{})
 
-	mqttTl := &koupleless_mqtt_tunnel.MqttTunnel{
-		Cache:  mgr.GetCache(),
-		Client: mgr.GetClient(),
+	tunnels := make([]tunnel.Tunnel, 0)
+	moduleTunnels := make([]module_tunnels.ModuleTunnel, 0)
+
+	mqttTunnelEnable := utils.GetEnv("ENABLE_MQTT_TUNNEL", "false")
+	if mqttTunnelEnable == "true" {
+		mqttTl := &koupleless_mqtt_tunnel.MqttTunnel{
+			Cache:  mgr.GetCache(),
+			Client: mgr.GetClient(),
+		}
+
+		tunnels = append(tunnels, mqttTl)
+		moduleTunnels = append(moduleTunnels, mqttTl)
 	}
 
-	httpTl := &koupleless_http_tunnel.HttpTunnel{
-		Cache:  mgr.GetCache(),
-		Client: mgr.GetClient(),
-		Port:   7777,
+	httpTunnelEnable := utils.GetEnv("ENABLE_HTTP_TUNNEL", "false")
+	if httpTunnelEnable == "true" {
+		httpTl := &koupleless_http_tunnel.HttpTunnel{
+			Cache:  mgr.GetCache(),
+			Client: mgr.GetClient(),
+			Port:   7777,
+		}
+		tunnels = append(tunnels, httpTl)
+		moduleTunnels = append(moduleTunnels, httpTl)
 	}
 
 	rcc := vkModel.BuildVNodeControllerConfig{
@@ -116,10 +130,7 @@ func main() {
 		VNodeWorkerNum:   vnodeWorkerNum,
 	}
 
-	vc, err := vnode_controller.NewVNodeController(&rcc, []tunnel.Tunnel{
-		mqttTl,
-		httpTl,
-	})
+	vc, err := vnode_controller.NewVNodeController(&rcc, tunnels)
 	if err != nil {
 		log.G(ctx).Error(err, "unable to set up VNodeController")
 		return
@@ -134,9 +145,7 @@ func main() {
 	enableModuleDeploymentController := utils.GetEnv("ENABLE_MODULE_DEPLOYMENT_CONTROLLER", "false")
 
 	if enableModuleDeploymentController == "true" {
-		mdc, err := module_deployment_controller.NewModuleDeploymentController(env, []module_tunnels.ModuleTunnel{
-			mqttTl,
-		})
+		mdc, err := module_deployment_controller.NewModuleDeploymentController(env, moduleTunnels)
 		if err != nil {
 			log.G(ctx).Error(err, "unable to set up module_deployment_controller")
 			return
@@ -149,18 +158,13 @@ func main() {
 		}
 	}
 
-	err = mqttTl.Start(ctx, clientID, env)
-	if err != nil {
-		log.G(ctx).WithError(err).Error("failed to start tunnel", mqttTl.Key())
-	} else {
-		log.G(ctx).Info("Tunnel started: ", mqttTl.Key())
-	}
-
-	err = httpTl.Start(ctx, clientID, env)
-	if err != nil {
-		log.G(ctx).WithError(err).Error("failed to start tunnel", httpTl.Key())
-	} else {
-		log.G(ctx).Info("Tunnel started: ", httpTl.Key())
+	for _, t := range tunnels {
+		err = t.Start(ctx, clientID, env)
+		if err != nil {
+			log.G(ctx).WithError(err).Error("failed to start tunnel", t.Key())
+		} else {
+			log.G(ctx).Info("Tunnel started: ", t.Key())
+		}
 	}
 
 	log.G(ctx).Info("Module controller running")
