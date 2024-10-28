@@ -253,9 +253,6 @@ func (m *MqttTunnel) bizOperationResponseCallback(_ paho.Client, msg paho.Messag
 		logrus.Errorf("Error unmarshalling biz response: %v", err)
 		return
 	}
-	if utils.Expired(data.PublishTimestamp, 1000*10) {
-		return
-	}
 
 	containerState := vkModel.ContainerStateDeactivated
 	if data.Data.Response.Code == "SUCCESS" {
@@ -265,7 +262,7 @@ func (m *MqttTunnel) bizOperationResponseCallback(_ paho.Client, msg paho.Messag
 		}
 	} else {
 		// operation failed, log
-		logrus.Errorf("biz operation failed: %s\n%s\n%s", data.Data.Response.Message, data.Data.Response.ErrorStackTrace, data.Data.Response.Data.Message)
+		logrus.Errorf("biz operation failed: %s\n%s:%s", data.Data.Response.Message, data.Data.Response.Data.Code, data.Data.Response.Data.Message)
 	}
 
 	m.onOneBizDataArrived(nodeID, vkModel.ContainerStatusData{
@@ -274,7 +271,7 @@ func (m *MqttTunnel) bizOperationResponseCallback(_ paho.Client, msg paho.Messag
 		PodKey:     vkModel.PodKeyAll,
 		State:      containerState,
 		ChangeTime: time.UnixMilli(data.PublishTimestamp),
-		Reason:     data.Data.Response.Data.Code,
+		Reason:     fmt.Sprintf("%sFailed:%s", data.Data.Command, data.Data.Response.Data.Code),
 		Message:    data.Data.Response.Data.Message,
 	})
 }

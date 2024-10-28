@@ -167,6 +167,8 @@ func GetContainerStateFromBizState(bizStateIndex string) vkModel.ContainerState 
 		return vkModel.ContainerStateActivated
 	case "deactivated":
 		return vkModel.ContainerStateDeactivated
+	case "broken":
+		return vkModel.ContainerStateDeactivated
 	}
 	return vkModel.ContainerStateWaiting
 }
@@ -179,6 +181,8 @@ func GetArkBizStateFromSimpleBizState(bizStateIndex string) string {
 		return "activated"
 	case "4":
 		return "deactivated"
+	case "5":
+		return "broken"
 	}
 	return ""
 }
