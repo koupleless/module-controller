@@ -112,10 +112,17 @@ func main() {
 
 	httpTunnelEnable := utils.GetEnv("ENABLE_HTTP_TUNNEL", "false")
 	if httpTunnelEnable == "true" {
+		httpTunnelListenPort, err := strconv.Atoi(utils.GetEnv("HTTP_TUNNEL_LISTEN_PORT", "7777"))
+
+		if err != nil {
+			log.G(ctx).WithError(err).Error("failed to parse HTTP_TUNNEL_LISTEN_PORT, set default port 7777")
+			httpTunnelListenPort = 7777
+		}
+
 		httpTl := &koupleless_http_tunnel.HttpTunnel{
 			Cache:  mgr.GetCache(),
 			Client: mgr.GetClient(),
-			Port:   7777,
+			Port:   httpTunnelListenPort,
 		}
 		tunnels = append(tunnels, httpTl)
 		moduleTunnels = append(moduleTunnels, httpTl)

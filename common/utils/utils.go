@@ -221,7 +221,10 @@ func OnBaseUnreachable(ctx context.Context, info vkModel.UnreachableNodeInfo, en
 	if err == nil {
 		// delete node from api server
 		logger.Info("DeleteBaseNode")
-		k8sClient.Delete(ctx, &node)
+		deleteErr := k8sClient.Delete(ctx, &node)
+		if deleteErr != nil && !apiErrors.IsNotFound(err) {
+			logger.WithError(deleteErr).Info("delete base node failed")
+		}
 	} else if apiErrors.IsNotFound(err) {
 		logger.Info("Node not found, skipping delete operation")
 	} else {
