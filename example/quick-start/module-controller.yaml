@@ -15,7 +15,7 @@ spec:
           cpu: "1000m"
           memory: "400Mi"
       ports:
-        - name: httpTunnel
+        - name: httptunnel
           containerPort: 7777
       env:
         - name: ENABLE_HTTP_TUNNEL
