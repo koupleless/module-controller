@@ -20,6 +20,7 @@ import (
 	"github.com/koupleless/module_controller/common/model"
 	"github.com/koupleless/module_controller/controller/module_deployment_controller"
 	"github.com/koupleless/module_controller/module_tunnels"
+	"github.com/koupleless/module_controller/module_tunnels/koupleless_http_tunnel"
 	"github.com/koupleless/module_controller/module_tunnels/koupleless_mqtt_tunnel"
 	"github.com/koupleless/module_controller/report_server"
 	"github.com/koupleless/virtual-kubelet/common/log"
@@ -71,13 +72,20 @@ func main() {
 
 	if err != nil {
 		log.G(ctx).WithError(err).Error("failed to parse WORKLOAD_MAX_LEVEL, will be set to 3 default")
+		workloadMaxLevel = 3
+	}
+
+	vnodeWorkerNum, err := strconv.Atoi(utils.GetEnv("VNODE_WORKER_NUM", "8"))
+	if err != nil {
+		log.G(ctx).WithError(err).Error("failed to parse VNODE_WORKER_NUM, will be set to 8 default")
+		vnodeWorkerNum = 8
 	}
 
 	kubeConfig := config.GetConfigOrDie()
 	mgr, err := manager.New(kubeConfig, manager.Options{
 		Cache: cache.Options{},
 		Metrics: server.Options{
-			BindAddress: "0",
+			BindAddress: ":9090",
 		},
 	})
 
@@ -88,9 +96,36 @@ func main() {
 
 	tracker.SetTracker(&tracker.DefaultTracker{})
 
-	tl := &koupleless_mqtt_tunnel.MqttTunnel{
-		Cache:  mgr.GetCache(),
-		Client: mgr.GetClient(),
+	tunnels := make([]tunnel.Tunnel, 0)
+	moduleTunnels := make([]module_tunnels.ModuleTunnel, 0)
+
+	mqttTunnelEnable := utils.GetEnv("ENABLE_MQTT_TUNNEL", "false")
+	if mqttTunnelEnable == "true" {
+		mqttTl := &koupleless_mqtt_tunnel.MqttTunnel{
+			Cache:  mgr.GetCache(),
+			Client: mgr.GetClient(),
+		}
+
+		tunnels = append(tunnels, mqttTl)
+		moduleTunnels = append(moduleTunnels, mqttTl)
+	}
+
+	httpTunnelEnable := utils.GetEnv("ENABLE_HTTP_TUNNEL", "false")
+	if httpTunnelEnable == "true" {
+		httpTunnelListenPort, err := strconv.Atoi(utils.GetEnv("HTTP_TUNNEL_LISTEN_PORT", "7777"))
+
+		if err != nil {
+			log.G(ctx).WithError(err).Error("failed to parse HTTP_TUNNEL_LISTEN_PORT, set default port 7777")
+			httpTunnelListenPort = 7777
+		}
+
+		httpTl := &koupleless_http_tunnel.HttpTunnel{
+			Cache:  mgr.GetCache(),
+			Client: mgr.GetClient(),
+			Port:   httpTunnelListenPort,
+		}
+		tunnels = append(tunnels, httpTl)
+		moduleTunnels = append(moduleTunnels, httpTl)
 	}
 
 	rcc := vkModel.BuildVNodeControllerConfig{
@@ -99,11 +134,10 @@ func main() {
 		VPodIdentity:     model.ComponentModule,
 		IsCluster:        isCluster,
 		WorkloadMaxLevel: workloadMaxLevel,
+		VNodeWorkerNum:   vnodeWorkerNum,
 	}
 
-	vc, err := vnode_controller.NewVNodeController(&rcc, []tunnel.Tunnel{
-		tl,
-	})
+	vc, err := vnode_controller.NewVNodeController(&rcc, tunnels)
 	if err != nil {
 		log.G(ctx).Error(err, "unable to set up VNodeController")
 		return
@@ -118,9 +152,7 @@ func main() {
 	enableModuleDeploymentController := utils.GetEnv("ENABLE_MODULE_DEPLOYMENT_CONTROLLER", "false")
 
 	if enableModuleDeploymentController == "true" {
-		mdc, err := module_deployment_controller.NewModuleDeploymentController(env, []module_tunnels.ModuleTunnel{
-			tl,
-		})
+		mdc, err := module_deployment_controller.NewModuleDeploymentController(env, moduleTunnels)
 		if err != nil {
 			log.G(ctx).Error(err, "unable to set up module_deployment_controller")
 			return
@@ -133,11 +165,13 @@ func main() {
 		}
 	}
 
-	err = tl.Start(ctx, clientID, env)
-	if err != nil {
-		log.G(ctx).WithError(err).Error("failed to start tunnel", tl.Key())
-	} else {
-		log.G(ctx).Info("Tunnel started: ", tl.Key())
+	for _, t := range tunnels {
+		err = t.Start(ctx, clientID, env)
+		if err != nil {
+			log.G(ctx).WithError(err).Error("failed to start tunnel", t.Key())
+		} else {
+			log.G(ctx).Info("Tunnel started: ", t.Key())
+		}
 	}
 
 	log.G(ctx).Info("Module controller running")

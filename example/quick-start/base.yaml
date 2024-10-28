@@ -7,23 +7,13 @@ metadata:
 spec:
   containers:
     - name: base
-      image: serverless-registry.cn-shanghai.cr.aliyuncs.com/opensource/test/base-web:latest # 已经打包好的镜像
+      image: serverless-registry.cn-shanghai.cr.aliyuncs.com/opensource/test/base-web:1.1.1 # 已经打包好的镜像
       imagePullPolicy: Always
       ports:
         - name: base
           containerPort: 8080
+        - name: arklet
+          containerPort: 1238
       env:
-        - name: KUPLELESS_ARKLET_MQTT_BROKER
-          value: 10.244.0.27
-        - name: KUPLELESS_ARKLET_MQTT_PORT
-          value: "1883"
-        - name: KUPLELESS_ARKLET_MQTT_USERNAME
-          value: koupleless_base
-        - name: KUPLELESS_ARKLET_MQTT_PASSWORD
-          value: public
-        - name: KUPLELESS_ARKLET_MQTT_CLIENT_PREFIX
-          value: koupleless
-        - name: KUPLELESS_ARKLET_CUSTOM_TUNNEL_CLASSNAME
-          value: com.alipay.sofa.koupleless.arklet.tunnel.mqtt.MqttTunnel
-        - name: KUPLELESS_ARKLET_CUSTOM_BASE_METADATA_CLASSNAME
-          value: com.alipay.sofa.web.base.metadata.MetadataHook
+        - name: MODULE_CONTROLLER_ADDRESS
+          value: {YOUR_MODULE_CONTROLLER_IP}

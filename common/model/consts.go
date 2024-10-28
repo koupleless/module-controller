@@ -44,5 +44,6 @@ const (
 )
 
 const (
-	LabelKeyOfTechStack = "base.koupleless.io/stack"
+	LabelKeyOfTechStack  = "base.koupleless.io/stack"
+	LabelKeyOfArkletPort = "base.koupleless.io/arklet-port"
 )

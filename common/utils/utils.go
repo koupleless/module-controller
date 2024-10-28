@@ -1,14 +1,19 @@
 package utils
 
 import (
+	"context"
 	"fmt"
 	"github.com/koupleless/arkctl/common/fileutil"
 	"github.com/koupleless/arkctl/v1/service/ark"
 	"github.com/koupleless/module_controller/common/model"
+	"github.com/koupleless/virtual-kubelet/common/log"
 	"github.com/koupleless/virtual-kubelet/common/utils"
 	vkModel "github.com/koupleless/virtual-kubelet/model"
 	"github.com/sirupsen/logrus"
 	corev1 "k8s.io/api/core/v1"
+	apiErrors "k8s.io/apimachinery/pkg/api/errors"
+	"sigs.k8s.io/controller-runtime/pkg/client"
+	"strconv"
 	"strings"
 	"time"
 )
@@ -61,6 +66,10 @@ func TranslateHeartBeatDataToNodeInfo(data model.HeartBeatData) vkModel.NodeInfo
 	if data.State == "ACTIVATED" {
 		state = vkModel.NodeStatusActivated
 	}
+	labels := map[string]string{}
+	if data.NetworkInfo.ArkletPort != 0 {
+		labels[model.LabelKeyOfArkletPort] = strconv.Itoa(data.NetworkInfo.ArkletPort)
+	}
 	return vkModel.NodeInfo{
 		Metadata: vkModel.NodeMetadata{
 			Name:    data.MasterBizInfo.Name,
@@ -71,6 +80,7 @@ func TranslateHeartBeatDataToNodeInfo(data model.HeartBeatData) vkModel.NodeInfo
 			NodeIP:   data.NetworkInfo.LocalIP,
 			HostName: data.NetworkInfo.LocalHostName,
 		},
+		CustomLabels: labels,
 	}
 }
 
@@ -150,12 +160,14 @@ func TranslateSimpleBizDataToArkBizInfo(data model.ArkSimpleBizInfoData) *ark.Ar
 }
 
 func GetContainerStateFromBizState(bizStateIndex string) vkModel.ContainerState {
-	switch bizStateIndex {
-	case "RESOLVED":
+	switch strings.ToLower(bizStateIndex) {
+	case "resolved":
 		return vkModel.ContainerStateResolved
-	case "ACTIVATED":
+	case "activated":
 		return vkModel.ContainerStateActivated
-	case "DEACTIVATED":
+	case "deactivated":
+		return vkModel.ContainerStateDeactivated
+	case "broken":
 		return vkModel.ContainerStateDeactivated
 	}
 	return vkModel.ContainerStateWaiting
@@ -164,11 +176,13 @@ func GetContainerStateFromBizState(bizStateIndex string) vkModel.ContainerState 
 func GetArkBizStateFromSimpleBizState(bizStateIndex string) string {
 	switch bizStateIndex {
 	case "2":
-		return "RESOLVED"
+		return "resolved"
 	case "3":
-		return "ACTIVATED"
+		return "activated"
 	case "4":
-		return "DEACTIVATED"
+		return "deactivated"
+	case "5":
+		return "broken"
 	}
 	return ""
 }
@@ -196,4 +210,40 @@ func GetLatestState(state string, records []ark.ArkBizStateRecord) (time.Time, s
 		}
 	}
 	return latestStateTime, reason, message
+}
+
+func OnBaseUnreachable(ctx context.Context, info vkModel.UnreachableNodeInfo, env string, k8sClient client.Client) {
+	// base not ready, delete from api server
+	node := corev1.Node{}
+	nodeName := utils.FormatNodeName(info.NodeID, env)
+	err := k8sClient.Get(ctx, client.ObjectKey{Name: nodeName}, &node)
+	logger := log.G(ctx).WithField("nodeID", info.NodeID).WithField("func", "OnNodeNotReady")
+	if err == nil {
+		// delete node from api server
+		logger.Info("DeleteBaseNode")
+		deleteErr := k8sClient.Delete(ctx, &node)
+		if deleteErr != nil && !apiErrors.IsNotFound(err) {
+			logger.WithError(deleteErr).Info("delete base node failed")
+		}
+	} else if apiErrors.IsNotFound(err) {
+		logger.Info("Node not found, skipping delete operation")
+	} else {
+		logger.WithError(err).Error("Failed to get node, cannot delete")
+	}
+}
+
+func ExtractNetworkInfoFromNodeInfoData(initData vkModel.NodeInfo) model.NetworkInfo {
+	portStr := initData.CustomLabels[model.LabelKeyOfArkletPort]
+
+	port, err := strconv.Atoi(portStr)
+	if err != nil {
+		logrus.Errorf("failed to parse port %s from node info", portStr)
+		port = 1238
+	}
+
+	return model.NetworkInfo{
+		LocalIP:       initData.NetworkInfo.NodeIP,
+		LocalHostName: initData.NetworkInfo.HostName,
+		ArkletPort:    port,
+	}
 }

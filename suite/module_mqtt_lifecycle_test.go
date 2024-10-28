@@ -16,7 +16,7 @@ var _ = Describe("Module Lifecycle Test", func() {
 	ctx := context.Background()
 
 	nodeID := "test-base"
-	mockBase := NewMockBase("test-base", "1.0.0", nodeID, env)
+	mockBase := NewMockMqttBase("test-base", "1.0.0", nodeID, env)
 
 	mockModulePod := prepareModulePod("test-module", "default", utils.FormatNodeName(nodeID, env))
 

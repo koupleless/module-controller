@@ -8,20 +8,15 @@ spec:
   serviceAccountName: virtual-kubelet # 上一步中配置好的 Service Account
   containers:
     - name: module-controller
-      image: serverless-registry.cn-shanghai.cr.aliyuncs.com/opensource/release/module_controller:2.0.0 # 已经打包好的镜像
+      image: serverless-registry.cn-shanghai.cr.aliyuncs.com/opensource/release/module_controller:2.1.0 # 已经打包好的镜像
       imagePullPolicy: Always
       resources:
         limits:
           cpu: "1000m"
           memory: "400Mi"
+      ports:
+        - name: httptunnel
+          containerPort: 7777
       env:
-        - name: MQTT_BROKER # mqtt broker url
-          value: YOUR_MQTT_BROKER
-        - name: MQTT_PORT # mqtt port
-          value: "1883"
-        - name: MQTT_USERNAME # mqtt username
-          value: koupleless
-        - name: MQTT_PASSWORD # mqtt password
-          value: public
-        - name: MQTT_CLIENT_PREFIX # mqtt client prefix
-          value: koupleless
+        - name: ENABLE_HTTP_TUNNEL
+          value: "true"
