@@ -1,11 +1,13 @@
 package koupleless_mqtt_tunnel
 
 import (
-	"github.com/koupleless/virtual-kubelet/common/utils"
 	"os"
 	"strconv"
+
+	"github.com/koupleless/virtual-kubelet/common/utils"
 )
 
+// Constants for default MQTT configurations
 const (
 	DefaultMQTTBroker       = "test-broker"
 	DefaultMQTTUsername     = "test-username"
@@ -13,6 +15,7 @@ const (
 	DefaultMQTTPort         = "1883"
 )
 
+// MqttConfig holds the configuration for an MQTT client
 type MqttConfig struct {
 	MqttBroker        string
 	MqttPort          int
@@ -24,6 +27,7 @@ type MqttConfig struct {
 	MqttClientKeyPath string
 }
 
+// init initializes the MQTT configuration
 func (c *MqttConfig) init() {
 	c.MqttBroker = utils.GetEnv("MQTT_BROKER", DefaultMQTTBroker)
 	portStr := utils.GetEnv("MQTT_PORT", DefaultMQTTPort)

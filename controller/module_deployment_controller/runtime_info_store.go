@@ -2,11 +2,43 @@ package module_deployment_controller
 
 import (
 	"fmt"
+	"sync"
+
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/labels"
-	"sync"
 )
+
+// RuntimeInfoStore provides in-memory runtime information storage with thread-safe access.
+// Key components:
+// - Deployment maps: Stores peer and non-peer deployments
+// - Node map: Stores node information
+// - Label maps: Tracks relationships between deployments, nodes and their labels
+// - Thread safety: Uses RWMutex for concurrent access
+
+// Main operations:
+// 1. Deployment Management
+//    - PutDeployment: Adds/updates deployment and its label selectors
+//    - DeleteDeployment: Removes deployment and its label mappings
+//
+// 2. Node Management
+//    - PutNode: Adds/updates node and its labels, tracks label changes
+//    - DeleteNode: Removes node and updates label mappings
+//
+// 3. Label Management
+//    - updateDeploymentSelectorLabelMap: Maintains deployment->label mappings
+//    - updateNodeLabelMap: Maintains node->label mappings
+//    - Tracks both equality and non-equality label requirements
+//
+// 4. Matching Logic
+//    - GetRelatedDeploymentsByNode: Finds deployments matching a node's labels
+//    - GetMatchedNodeNum: Counts nodes matching a deployment's label selectors
+//    - isNodeFitDep: Checks if node labels satisfy deployment requirements
+//
+// 5. Helper Functions
+//    - Label set operations: union, intersection, subtraction
+//    - Label diff calculation
+//    - Deployment label extraction
 
 // RuntimeInfoStore provide the in memory runtime information.
 type RuntimeInfoStore struct {
@@ -31,10 +63,14 @@ func NewRuntimeInfoStore() *RuntimeInfoStore {
 	}
 }
 
+// getResourceKey generates a unique key for a k8s resource by combining namespace and name
 func (r *RuntimeInfoStore) getResourceKey(namespace, name string) string {
 	return fmt.Sprintf("%s/%s", namespace, name)
 }
 
+// PutDeployment adds or updates a deployment in the store
+// - Stores deployment in peerDeploymentMap
+// - Updates label selector mappings
 func (r *RuntimeInfoStore) PutDeployment(deployment appsv1.Deployment) {
 	r.Lock()
 	defer r.Unlock()
@@ -43,6 +79,9 @@ func (r *RuntimeInfoStore) PutDeployment(deployment appsv1.Deployment) {
 	r.updateDeploymentSelectorLabelMap(depKey, deployment.DeepCopy())
 }
 
+// DeleteDeployment removes a deployment and its label mappings from the store
+// - Removes from peerDeploymentMap
+// - Cleans up label selector mappings
 func (r *RuntimeInfoStore) DeleteDeployment(deployment appsv1.Deployment) {
 	r.Lock()
 	defer r.Unlock()
@@ -57,6 +96,11 @@ func (r *RuntimeInfoStore) DeleteDeployment(deployment appsv1.Deployment) {
 	}
 }
 
+// PutNode adds or updates a node in the store
+// - Stores node in nodeMap
+// - Tracks label changes between old and new node
+// - Updates label mappings
+// Returns true if labels changed
 func (r *RuntimeInfoStore) PutNode(node *corev1.Node) (labelChanged bool) {
 	r.Lock()
 	defer r.Unlock()
@@ -76,6 +120,9 @@ func (r *RuntimeInfoStore) PutNode(node *corev1.Node) (labelChanged bool) {
 	return len(sub) != 0 || len(plus) != 0
 }
 
+// DeleteNode removes a node and its label mappings from the store
+// - Removes from nodeMap
+// - Updates label mappings
 func (r *RuntimeInfoStore) DeleteNode(node *corev1.Node) {
 	r.Lock()
 	defer r.Unlock()
@@ -92,6 +139,9 @@ func (r *RuntimeInfoStore) DeleteNode(node *corev1.Node) {
 	r.updateNodeLabelMap(nodeKey, oldLabels, nil)
 }
 
+// updateDeploymentSelectorLabelMap maintains deployment->label mappings
+// - Extracts equality and non-equality label requirements
+// - Updates internal maps
 func (r *RuntimeInfoStore) updateDeploymentSelectorLabelMap(depKey string, newDep *appsv1.Deployment) {
 	newEqLabels, newNeLabels := getDeploymentMatchLabels(*newDep)
 
@@ -99,6 +149,9 @@ func (r *RuntimeInfoStore) updateDeploymentSelectorLabelMap(depKey string, newDe
 	r.depKeyToNeLabels[depKey] = newNeLabels
 }
 
+// updateNodeLabelMap maintains node->label mappings
+// - Removes old label mappings (sub)
+// - Adds new label mappings (plus)
 func (r *RuntimeInfoStore) updateNodeLabelMap(nodeKey string, sub, plus labels.Set) {
 	// delete map item
 	for key, value := range sub {
@@ -131,6 +184,9 @@ func (r *RuntimeInfoStore) updateNodeLabelMap(nodeKey string, sub, plus labels.S
 	}
 }
 
+// GetRelatedDeploymentsByNode finds deployments matching a node's labels
+// - Checks each deployment against node labels
+// - Returns matching deployments
 func (r *RuntimeInfoStore) GetRelatedDeploymentsByNode(node *corev1.Node) []appsv1.Deployment {
 	r.Lock()
 	defer r.Unlock()
@@ -146,6 +202,9 @@ func (r *RuntimeInfoStore) GetRelatedDeploymentsByNode(node *corev1.Node) []apps
 	return matchedDeployments
 }
 
+// isNodeFitDep checks if node labels satisfy deployment requirements
+// - Verifies equality label matches
+// - Verifies non-equality label matches
 func (r *RuntimeInfoStore) isNodeFitDep(nodeLabels labels.Set, depKey string) bool {
 	eqLabels := r.depKeyToEqLabels[depKey]
 	neLabels := r.depKeyToNeLabels[depKey]
@@ -172,6 +231,9 @@ func (r *RuntimeInfoStore) isNodeFitDep(nodeLabels labels.Set, depKey string) bo
 	return true
 }
 
+// GetMatchedNodeNum counts nodes matching a deployment's label selectors
+// - Checks equality and non-equality label requirements
+// - Returns count of matching nodes
 func (r *RuntimeInfoStore) GetMatchedNodeNum(deployment appsv1.Deployment) int {
 	r.Lock()
 	defer r.Unlock()
@@ -228,6 +290,10 @@ func (r *RuntimeInfoStore) GetMatchedNodeNum(deployment appsv1.Deployment) int {
 	return nodeNum
 }
 
+// getLabelDiff calculates differences between old and new label sets
+// Returns:
+// - sub: labels removed
+// - plus: labels added
 func getLabelDiff(oldLabels, newLabels labels.Set) (sub labels.Set, plus labels.Set) {
 	sub = labels.Set{}
 	plus = labels.Set{}
@@ -248,6 +314,7 @@ func getLabelDiff(oldLabels, newLabels labels.Set) (sub labels.Set, plus labels.
 	return
 }
 
+// subKeys returns keys in keyList1 that are not in keyList2
 func subKeys(keyList1, keyList2 map[string]interface{}) map[string]interface{} {
 	sub := make(map[string]interface{})
 	for key := range keyList1 {
@@ -260,6 +327,7 @@ func subKeys(keyList1, keyList2 map[string]interface{}) map[string]interface{} {
 	return sub
 }
 
+// unionLabels adds labels2 entries to srcMap
 func unionLabels(srcMap map[string]map[string]interface{}, labels2 labels.Set) {
 	for key, value := range labels2 {
 		valueMap := srcMap[key]
@@ -271,6 +339,7 @@ func unionLabels(srcMap map[string]map[string]interface{}, labels2 labels.Set) {
 	}
 }
 
+// intersection returns keys present in both maps
 func intersection(src, target map[string]interface{}) map[string]interface{} {
 	ret := map[string]interface{}{}
 
@@ -284,6 +353,7 @@ func intersection(src, target map[string]interface{}) map[string]interface{} {
 	return ret
 }
 
+// union returns keys present in either map
 func union(src, target map[string]interface{}) map[string]interface{} {
 	ret := map[string]interface{}{}
 
@@ -296,6 +366,10 @@ func union(src, target map[string]interface{}) map[string]interface{} {
 	return ret
 }
 
+// getDeploymentMatchLabels extracts label requirements from deployment spec
+// Returns:
+// - eqLabels: equality requirements (In/Exists)
+// - neLabels: non-equality requirements (NotIn/DoesNotExist)
 func getDeploymentMatchLabels(dep appsv1.Deployment) (eqLabels, neLabels map[string]map[string]interface{}) {
 
 	eqLabels = make(map[string]map[string]interface{})

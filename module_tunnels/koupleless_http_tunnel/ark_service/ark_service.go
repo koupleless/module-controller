@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+
 	"github.com/koupleless/virtual-kubelet/common/log"
 
 	"github.com/go-resty/resty/v2"

@@ -3,6 +3,8 @@ package module_deployment_controller
 import (
 	"context"
 	"errors"
+	"sort"
+
 	"github.com/koupleless/module_controller/common/model"
 	"github.com/koupleless/module_controller/module_tunnels"
 	"github.com/koupleless/virtual-kubelet/common/log"
@@ -24,28 +26,30 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/manager"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 	"sigs.k8s.io/controller-runtime/pkg/source"
-	"sort"
 )
 
+// ModuleDeploymentController is a controller that manages the deployment of modules within a specific environment.
 type ModuleDeploymentController struct {
-	env string
+	env string // The environment in which the controller operates.
 
-	tunnels []module_tunnels.ModuleTunnel
+	tunnels []module_tunnels.ModuleTunnel // A list of tunnels for communication with modules.
 
-	client client.Client
+	client client.Client // The client for interacting with the Kubernetes API.
 
-	cache cache.Cache
+	cache cache.Cache // The cache for storing and retrieving Kubernetes objects.
 
-	runtimeStorage *RuntimeInfoStore
+	runtimeStorage *RuntimeInfoStore // Storage for runtime information about deployments and nodes.
 
-	updateToken chan interface{}
+	updateToken chan interface{} // A channel for signaling updates.
 }
 
+// Reconcile is the main reconciliation function for the controller.
 func (mdc *ModuleDeploymentController) Reconcile(ctx context.Context, request reconcile.Request) (reconcile.Result, error) {
-	// use event handler, just return
+	// This function is a placeholder for actual reconciliation logic.
 	return reconcile.Result{}, nil
 }
 
+// NewModuleDeploymentController creates a new instance of the controller.
 func NewModuleDeploymentController(env string, tunnels []module_tunnels.ModuleTunnel) (*ModuleDeploymentController, error) {
 	return &ModuleDeploymentController{
 		env:            env,
@@ -55,8 +59,8 @@ func NewModuleDeploymentController(env string, tunnels []module_tunnels.ModuleTu
 	}, nil
 }
 
+// SetupWithManager sets up the controller with a manager.
 func (mdc *ModuleDeploymentController) SetupWithManager(ctx context.Context, mgr manager.Manager) (err error) {
-
 	mdc.updateToken <- nil
 
 	for _, tunnel := range mdc.tunnels {
@@ -169,6 +173,7 @@ func (mdc *ModuleDeploymentController) SetupWithManager(ctx context.Context, mgr
 	return nil
 }
 
+// queryContainerBaseline queries the baseline for a given container.
 func (mdc *ModuleDeploymentController) queryContainerBaseline(req model.QueryBaselineRequest) []corev1.Container {
 	labelMap := map[string]string{
 		vkModel.LabelKeyOfEnv:          mdc.env,
@@ -197,6 +202,7 @@ func (mdc *ModuleDeploymentController) queryContainerBaseline(req model.QueryBas
 	return containers
 }
 
+// vnodeCreateHandler handles the creation of a new vnode.
 func (mdc *ModuleDeploymentController) vnodeCreateHandler(vnode *corev1.Node) {
 	changed := mdc.runtimeStorage.PutNode(vnode.DeepCopy())
 	if changed {
@@ -205,6 +211,7 @@ func (mdc *ModuleDeploymentController) vnodeCreateHandler(vnode *corev1.Node) {
 	}
 }
 
+// vnodeUpdateHandler handles the update of an existing vnode.
 func (mdc *ModuleDeploymentController) vnodeUpdateHandler(_, vnode *corev1.Node) {
 	changed := mdc.runtimeStorage.PutNode(vnode.DeepCopy())
 	if changed {
@@ -213,6 +220,7 @@ func (mdc *ModuleDeploymentController) vnodeUpdateHandler(_, vnode *corev1.Node)
 	}
 }
 
+// vnodeDeleteHandler handles the deletion of a vnode.
 func (mdc *ModuleDeploymentController) vnodeDeleteHandler(vnode *corev1.Node) {
 	vnodeCopy := vnode.DeepCopy()
 	mdc.runtimeStorage.DeleteNode(vnodeCopy)
@@ -220,37 +228,38 @@ func (mdc *ModuleDeploymentController) vnodeDeleteHandler(vnode *corev1.Node) {
 	go mdc.updateDeploymentReplicas(relatedDeploymentsByNode)
 }
 
-func (mdc *ModuleDeploymentController) deploymentAddHandler(dep interface{}) {
-	moduleDeployment, ok := dep.(*appsv1.Deployment)
-	if !ok {
+// deploymentAddHandler handles the addition of a new deployment.
+func (mdc *ModuleDeploymentController) deploymentAddHandler(dep *appsv1.Deployment) {
+	if dep == nil {
 		return
 	}
 
-	deploymentCopy := moduleDeployment.DeepCopy()
+	deploymentCopy := dep.DeepCopy()
 	mdc.runtimeStorage.PutDeployment(*deploymentCopy)
 
 	go mdc.updateDeploymentReplicas([]appsv1.Deployment{*deploymentCopy})
 }
 
-func (mdc *ModuleDeploymentController) deploymentUpdateHandler(_, newDep interface{}) {
-	moduleDeployment, ok := newDep.(*appsv1.Deployment)
-	if !ok {
+// deploymentUpdateHandler handles the update of an existing deployment.
+func (mdc *ModuleDeploymentController) deploymentUpdateHandler(_, newDep *appsv1.Deployment) {
+	if newDep == nil {
 		return
 	}
-	deploymentCopy := moduleDeployment.DeepCopy()
+	deploymentCopy := newDep.DeepCopy()
 	mdc.runtimeStorage.PutDeployment(*deploymentCopy)
 
 	go mdc.updateDeploymentReplicas([]appsv1.Deployment{*deploymentCopy})
 }
 
-func (mdc *ModuleDeploymentController) deploymentDeleteHandler(dep interface{}) {
-	moduleDeployment, ok := dep.(*appsv1.Deployment)
-	if !ok {
+// deploymentDeleteHandler handles the deletion of a deployment.
+func (mdc *ModuleDeploymentController) deploymentDeleteHandler(dep *appsv1.Deployment) {
+	if dep == nil {
 		return
 	}
-	mdc.runtimeStorage.DeleteDeployment(*moduleDeployment.DeepCopy())
+	mdc.runtimeStorage.DeleteDeployment(*dep.DeepCopy())
 }
 
+// updateDeploymentReplicas updates the replicas of deployments based on node count.
 func (mdc *ModuleDeploymentController) updateDeploymentReplicas(deployments []appsv1.Deployment) {
 	<-mdc.updateToken
 	defer func() {
@@ -272,6 +281,7 @@ func (mdc *ModuleDeploymentController) updateDeploymentReplicas(deployments []ap
 	}
 }
 
+// updateDeploymentReplicasOfKubernetes updates the replicas of a deployment in Kubernetes.
 func (mdc *ModuleDeploymentController) updateDeploymentReplicasOfKubernetes(replicas int, deployment appsv1.Deployment) (error, vkModel.ErrorCode) {
 	deployment.Spec.Replicas = ptr.To[int32](int32(replicas))
 	err := mdc.client.Update(context.TODO(), &deployment)

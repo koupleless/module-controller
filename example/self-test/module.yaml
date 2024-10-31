@@ -1,0 +1,51 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: module-biz{bizIndex}
+  namespace: module
+  labels:
+    virtual-kubelet.koupleless.io/component: module-deployment
+spec:
+  replicas: {baseNum}
+  selector:
+    matchLabels:
+      module: biz{bizIndex}
+  template:
+    metadata:
+      namespace: module
+      labels:
+        module: biz{bizIndex}
+        virtual-kubelet.koupleless.io/component: module
+    spec:
+      containers:
+        - name: biz{bizIndex}
+          image: https://koupleless.oss-cn-shanghai.aliyuncs.com/module-packages/test_modules/biz{bizIndex}-{bizVersion}-ark-biz.jar
+          env:
+            - name: BIZ_VERSION
+              value: {bizVersion}
+      affinity:
+        nodeAffinity:
+          requiredDuringSchedulingIgnoredDuringExecution:
+            nodeSelectorTerms:
+              - matchExpressions:
+                  - key: base.koupleless.io/stack
+                    operator: In
+                    values:
+                      - java
+                  - key: vnode.koupleless.io/version
+                    operator: In
+                    values:
+                      - 1.0.0
+                  - key: vnode.koupleless.io/name
+                    operator: In
+                    values:
+                      - koupleless-sample
+      tolerations:
+        - key: "schedule.koupleless.io/virtual-node"
+          operator: "Equal"
+          value: "True"
+          effect: "NoExecute"
+        - key: "schedule.koupleless.io/node-env"
+          operator: "Equal"
+          value: "test"
+          effect: "NoExecute"
