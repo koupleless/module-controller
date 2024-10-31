@@ -317,7 +317,9 @@ func (h *HttpTunnel) QueryAllContainerStatusData(ctx context.Context, nodeID str
 // StartContainer starts a container on the node
 func (h *HttpTunnel) StartContainer(ctx context.Context, nodeID, _ string, container *corev1.Container) error {
 
+	h.Lock()
 	networkInfo, ok := h.nodeNetworkInfoOfNodeID[nodeID]
+	h.Unlock()
 	if !ok {
 		return errors.New("network info not found")
 	}
@@ -349,8 +351,11 @@ func (h *HttpTunnel) StartContainer(ctx context.Context, nodeID, _ string, conta
 // ShutdownContainer shuts down a container on the node
 func (h *HttpTunnel) ShutdownContainer(ctx context.Context, nodeID, _ string, container *corev1.Container) error {
 
+	h.Lock()
 	networkInfo, ok := h.nodeNetworkInfoOfNodeID[nodeID]
+	h.Unlock()
 	if !ok {
+		return errors.New("network info not found")
 	}
 
 	bizModel := utils.TranslateCoreV1ContainerToBizModel(container)
