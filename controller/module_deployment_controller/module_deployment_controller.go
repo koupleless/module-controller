@@ -229,37 +229,34 @@ func (mdc *ModuleDeploymentController) vnodeDeleteHandler(vnode *corev1.Node) {
 }
 
 // deploymentAddHandler handles the addition of a new deployment.
-func (mdc *ModuleDeploymentController) deploymentAddHandler(dep interface{}) {
-	moduleDeployment, ok := dep.(*appsv1.Deployment)
-	if !ok {
+func (mdc *ModuleDeploymentController) deploymentAddHandler(dep *appsv1.Deployment) {
+	if dep == nil {
 		return
 	}
 
-	deploymentCopy := moduleDeployment.DeepCopy()
+	deploymentCopy := dep.DeepCopy()
 	mdc.runtimeStorage.PutDeployment(*deploymentCopy)
 
 	go mdc.updateDeploymentReplicas([]appsv1.Deployment{*deploymentCopy})
 }
 
 // deploymentUpdateHandler handles the update of an existing deployment.
-func (mdc *ModuleDeploymentController) deploymentUpdateHandler(_, newDep interface{}) {
-	moduleDeployment, ok := newDep.(*appsv1.Deployment)
-	if !ok {
+func (mdc *ModuleDeploymentController) deploymentUpdateHandler(_, newDep *appsv1.Deployment) {
+	if newDep == nil {
 		return
 	}
-	deploymentCopy := moduleDeployment.DeepCopy()
+	deploymentCopy := newDep.DeepCopy()
 	mdc.runtimeStorage.PutDeployment(*deploymentCopy)
 
 	go mdc.updateDeploymentReplicas([]appsv1.Deployment{*deploymentCopy})
 }
 
 // deploymentDeleteHandler handles the deletion of a deployment.
-func (mdc *ModuleDeploymentController) deploymentDeleteHandler(dep interface{}) {
-	moduleDeployment, ok := dep.(*appsv1.Deployment)
-	if !ok {
+func (mdc *ModuleDeploymentController) deploymentDeleteHandler(dep *appsv1.Deployment) {
+	if dep == nil {
 		return
 	}
-	mdc.runtimeStorage.DeleteDeployment(*moduleDeployment.DeepCopy())
+	mdc.runtimeStorage.DeleteDeployment(*dep.DeepCopy())
 }
 
 // updateDeploymentReplicas updates the replicas of deployments based on node count.
