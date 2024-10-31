@@ -4,12 +4,16 @@ import (
 	"crypto/tls"
 	"crypto/x509"
 	"fmt"
-	mqtt "github.com/eclipse/paho.mqtt.golang"
-	"github.com/sirupsen/logrus"
 	"os"
 	"time"
+
+	mqtt "github.com/eclipse/paho.mqtt.golang"
+	"github.com/sirupsen/logrus"
 )
 
+type ClientInitFunc func(*mqtt.ClientOptions) mqtt.Client
+
+// Constants for MQTT QoS levels
 const (
 	// Qos0 means message only published once
 	Qos0 = iota
@@ -21,14 +25,12 @@ const (
 	Qos2
 )
 
-type ClientInitFunc func(*mqtt.ClientOptions) mqtt.Client
-
-var DefaultMqttClientInitFunc ClientInitFunc = mqtt.NewClient
-
+// Client represents an MQTT client
 type Client struct {
 	client mqtt.Client
 }
 
+// ClientConfig holds configuration for an MQTT client
 type ClientConfig struct {
 	Broker                string
 	Port                  int
@@ -46,6 +48,10 @@ type ClientConfig struct {
 	ClientInitFunc        ClientInitFunc
 }
 
+// DefaultMqttClientInitFunc is the default function to initialize an MQTT client
+var DefaultMqttClientInitFunc ClientInitFunc = mqtt.NewClient
+
+// Default message handlers
 var defaultMessageHandler mqtt.MessageHandler = func(client mqtt.Client, msg mqtt.Message) {
 	logrus.Infof("Received message: %s from topic: %s\n", msg.Payload(), msg.Topic())
 }
@@ -58,7 +64,7 @@ var defaultConnectionLostHandler mqtt.ConnectionLostHandler = func(client mqtt.C
 	logrus.Warnf("Connect lost: %v\n", err)
 }
 
-// newTlsConfig create a tls config using client config
+// newTlsConfig creates a TLS configuration using the client configuration
 func newTlsConfig(cfg *ClientConfig) (*tls.Config, error) {
 	config := tls.Config{
 		InsecureSkipVerify: true,
@@ -84,7 +90,7 @@ func newTlsConfig(cfg *ClientConfig) (*tls.Config, error) {
 	return &config, nil
 }
 
-// NewMqttClient create a new client using client config
+// NewMqttClient creates a new MQTT client using the provided configuration
 func NewMqttClient(cfg *ClientConfig) (*Client, error) {
 	opts := mqtt.NewClientOptions()
 	broker := ""
@@ -92,7 +98,7 @@ func NewMqttClient(cfg *ClientConfig) (*Client, error) {
 	opts.SetUsername(cfg.Username)
 	opts.SetPassword(cfg.Password)
 	if cfg.CAPath != "" {
-		// tls configured
+		// TLS configuration
 		tlsConfig, err := newTlsConfig(cfg)
 		if err != nil {
 			return nil, err
@@ -137,33 +143,34 @@ func NewMqttClient(cfg *ClientConfig) (*Client, error) {
 	}, nil
 }
 
+// Connect attempts to connect the MQTT client
 func (c *Client) Connect() error {
 	token := c.client.Connect()
 	token.Wait()
 	return token.Error()
 }
 
-// Pub publish a message to target topic, waiting for publish operation finish, return false if send failed
+// Pub publishes a message to a specified topic
 func (c *Client) Pub(topic string, qos byte, msg []byte) error {
 	token := c.client.Publish(topic, qos, true, msg)
 	token.Wait()
 	return token.Error()
 }
 
-// Sub subscribe a topic with callback, return false if subscription's creation fail
+// Sub subscribes to a topic with a callback
 func (c *Client) Sub(topic string, qos byte, callBack mqtt.MessageHandler) error {
 	token := c.client.Subscribe(topic, qos, callBack)
 	token.Wait()
 	return token.Error()
 }
 
-// UnSub unsubscribe a topic
+// UnSub unsubscribes from a topic
 func (c *Client) UnSub(topic string) error {
 	c.client.Unsubscribe(topic)
 	return nil
 }
 
-// Disconnect unsubscribe a topic
+// Disconnect disconnects the MQTT client
 func (c *Client) Disconnect() {
 	c.client.Disconnect(200)
 }

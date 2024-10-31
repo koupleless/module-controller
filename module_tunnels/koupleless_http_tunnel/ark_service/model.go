@@ -2,35 +2,41 @@ package ark_service
 
 import "github.com/koupleless/arkctl/v1/service/ark"
 
+// InstallBizRequest represents a request to install a business service
 type InstallBizRequest struct {
 	ark.BizModel `json:",inline"`
 }
 
+// UninstallBizRequest represents a request to uninstall a business service
 type UninstallBizRequest struct {
 	ark.BizModel `json:",inline"`
 }
 
+// ArkResponse is a generic response structure for Ark service operations
 type ArkResponse struct {
-	// Code is the response code
+	// Code is the response code indicating the outcome of the operation
 	Code string `json:"code"`
 
-	// Data is the response data
+	// Data is the response data, which can vary depending on the operation
 	Data ark.ArkResponseData `json:"data"`
 
-	// Message is the error message
+	// Message is the error message in case of an error
 	Message string `json:"message"`
 
-	// ErrorStackTrace is the error stack trace
+	// ErrorStackTrace is the error stack trace in case of an error
 	ErrorStackTrace string `json:"errorStackTrace"`
 
+	// BaseID is a unique identifier for the base service
 	BaseID string `json:"baseID"`
 }
 
+// QueryAllBizResponse represents the response for querying all business services
 type QueryAllBizResponse struct {
 	ark.GenericArkResponseBase[[]ark.ArkBizInfo]
 	BaseID string `json:"baseID"`
 }
 
+// HealthResponse represents the response for health checks
 type HealthResponse struct {
 	ark.GenericArkResponseBase[ark.HealthInfo]
 	BaseID string `json:"baseID"`

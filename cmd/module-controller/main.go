@@ -16,6 +16,11 @@ package main
 
 import (
 	"context"
+	"os"
+	"os/signal"
+	"strconv"
+	"syscall"
+
 	"github.com/google/uuid"
 	"github.com/koupleless/module_controller/common/model"
 	"github.com/koupleless/module_controller/controller/module_deployment_controller"
@@ -33,16 +38,23 @@ import (
 	vkModel "github.com/koupleless/virtual-kubelet/model"
 	"github.com/koupleless/virtual-kubelet/tunnel"
 	"github.com/sirupsen/logrus"
-	"os"
-	"os/signal"
 	"sigs.k8s.io/controller-runtime/pkg/cache"
 	"sigs.k8s.io/controller-runtime/pkg/client/config"
 	"sigs.k8s.io/controller-runtime/pkg/manager"
 	"sigs.k8s.io/controller-runtime/pkg/manager/signals"
 	"sigs.k8s.io/controller-runtime/pkg/metrics/server"
-	"strconv"
-	"syscall"
 )
+
+// Main function for the module controller
+// Responsibilities:
+// 1. Sets up signal handling for graceful shutdown
+// 2. Initializes reporting server
+// 3. Configures logging and tracing
+// 4. Sets up controller manager and caches
+// 5. Initializes tunnels (MQTT and HTTP) based on env vars
+// 6. Creates and configures the VNode controller
+// 7. Optionally creates module deployment controller
+// 8. Starts all tunnels and the manager
 
 func main() {
 	ctx, cancel := context.WithCancel(context.Background())
@@ -58,6 +70,7 @@ func main() {
 	log.L = logruslogger.FromLogrus(logrus.NewEntry(logrus.StandardLogger()))
 	trace.T = opencensus.Adapter{}
 
+	// Get configuration from environment variables
 	clientID := utils.GetEnv("CLIENT_ID", uuid.New().String())
 	env := utils.GetEnv("ENV", "dev")
 
@@ -67,6 +80,7 @@ func main() {
 		"is_cluster": true,
 	}))
 
+	// Parse configuration with defaults
 	isCluster := utils.GetEnv("IS_CLUSTER", "") == "true"
 	workloadMaxLevel, err := strconv.Atoi(utils.GetEnv("WORKLOAD_MAX_LEVEL", "3"))
 
@@ -81,6 +95,7 @@ func main() {
 		vnodeWorkerNum = 8
 	}
 
+	// Initialize controller manager
 	kubeConfig := config.GetConfigOrDie()
 	mgr, err := manager.New(kubeConfig, manager.Options{
 		Cache: cache.Options{},
@@ -96,6 +111,7 @@ func main() {
 
 	tracker.SetTracker(&tracker.DefaultTracker{})
 
+	// Initialize tunnels based on configuration
 	tunnels := make([]tunnel.Tunnel, 0)
 	moduleTunnels := make([]module_tunnels.ModuleTunnel, 0)
 
@@ -128,6 +144,7 @@ func main() {
 		moduleTunnels = append(moduleTunnels, httpTl)
 	}
 
+	// Configure and create VNode controller
 	rcc := vkModel.BuildVNodeControllerConfig{
 		ClientID:         clientID,
 		Env:              env,
@@ -149,6 +166,7 @@ func main() {
 		return
 	}
 
+	// Optionally enable module deployment controller
 	enableModuleDeploymentController := utils.GetEnv("ENABLE_MODULE_DEPLOYMENT_CONTROLLER", "false")
 
 	if enableModuleDeploymentController == "true" {
@@ -165,6 +183,7 @@ func main() {
 		}
 	}
 
+	// Start all tunnels
 	for _, t := range tunnels {
 		err = t.Start(ctx, clientID, env)
 		if err != nil {

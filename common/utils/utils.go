@@ -3,6 +3,10 @@ package utils
 import (
 	"context"
 	"fmt"
+	"strconv"
+	"strings"
+	"time"
+
 	"github.com/koupleless/arkctl/common/fileutil"
 	"github.com/koupleless/arkctl/v1/service/ark"
 	"github.com/koupleless/module_controller/common/model"
@@ -13,11 +17,9 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	apiErrors "k8s.io/apimachinery/pkg/api/errors"
 	"sigs.k8s.io/controller-runtime/pkg/client"
-	"strconv"
-	"strings"
-	"time"
 )
 
+// GetBaseIDFromTopic extracts the base ID from a topic string by splitting on '/'
 func GetBaseIDFromTopic(topic string) string {
 	fileds := strings.Split(topic, "/")
 	if len(fileds) < 2 {
@@ -26,18 +28,22 @@ func GetBaseIDFromTopic(topic string) string {
 	return fileds[1]
 }
 
+// Expired checks if a timestamp has expired based on a max lifetime
 func Expired(publishTimestamp int64, maxLiveMilliSec int64) bool {
 	return publishTimestamp+maxLiveMilliSec <= time.Now().UnixMilli()
 }
 
+// FormatArkletCommandTopic formats a topic string for arklet commands
 func FormatArkletCommandTopic(env, nodeID, command string) string {
 	return fmt.Sprintf("koupleless_%s/%s/%s", env, nodeID, command)
 }
 
+// FormatBaselineResponseTopic formats a topic string for baseline responses
 func FormatBaselineResponseTopic(env, nodeID string) string {
 	return fmt.Sprintf(model.BaseBaselineResponseTopic, env, nodeID)
 }
 
+// GetBizVersionFromContainer extracts the biz version from a container's env vars
 func GetBizVersionFromContainer(container *corev1.Container) string {
 	bizVersion := ""
 	for _, env := range container.Env {
@@ -49,6 +55,7 @@ func GetBizVersionFromContainer(container *corev1.Container) string {
 	return bizVersion
 }
 
+// TranslateCoreV1ContainerToBizModel converts a k8s container to an ark biz model
 func TranslateCoreV1ContainerToBizModel(container *corev1.Container) ark.BizModel {
 	return ark.BizModel{
 		BizName:    container.Name,
@@ -57,10 +64,12 @@ func TranslateCoreV1ContainerToBizModel(container *corev1.Container) ark.BizMode
 	}
 }
 
+// GetBizIdentity creates a unique identifier from biz name and version
 func GetBizIdentity(bizName, bizVersion string) string {
 	return bizName + ":" + bizVersion
 }
 
+// TranslateHeartBeatDataToNodeInfo converts heartbeat data to node info
 func TranslateHeartBeatDataToNodeInfo(data model.HeartBeatData) vkModel.NodeInfo {
 	state := vkModel.NodeStatusDeactivated
 	if data.State == "ACTIVATED" {
@@ -84,12 +93,17 @@ func TranslateHeartBeatDataToNodeInfo(data model.HeartBeatData) vkModel.NodeInfo
 	}
 }
 
+// TranslateHealthDataToNodeStatus converts health data to node status
 func TranslateHealthDataToNodeStatus(data ark.HealthData) vkModel.NodeStatusData {
 	resourceMap := make(map[corev1.ResourceName]vkModel.NodeResource)
 	memory := vkModel.NodeResource{}
+	// Set memory capacity if JavaMaxMetaspace is valid (not -1)
 	if data.Jvm.JavaMaxMetaspace != -1 {
 		memory.Capacity = utils.ConvertByteNumToResourceQuantity(data.Jvm.JavaMaxMetaspace)
 	}
+
+	// Calculate allocatable memory as max metaspace minus committed metaspace
+	// Only if both values are valid (not -1)
 	if data.Jvm.JavaMaxMetaspace != -1 && data.Jvm.JavaCommittedMetaspace != -1 {
 		memory.Allocatable = utils.ConvertByteNumToResourceQuantity(data.Jvm.JavaMaxMetaspace - data.Jvm.JavaCommittedMetaspace)
 	}
@@ -102,6 +116,7 @@ func TranslateHealthDataToNodeStatus(data ark.HealthData) vkModel.NodeStatusData
 	}
 }
 
+// TranslateHeartBeatDataToBaselineQuery converts heartbeat metadata to a baseline query
 func TranslateHeartBeatDataToBaselineQuery(data model.Metadata) model.QueryBaselineRequest {
 	return model.QueryBaselineRequest{
 		Name:    data.Name,
@@ -112,6 +127,7 @@ func TranslateHeartBeatDataToBaselineQuery(data model.Metadata) model.QueryBasel
 	}
 }
 
+// TranslateBizInfosToContainerStatuses converts biz info to container statuses
 func TranslateBizInfosToContainerStatuses(data []ark.ArkBizInfo, changeTimestamp int64) []vkModel.ContainerStatusData {
 	ret := make([]vkModel.ContainerStatusData, 0)
 	for _, bizInfo := range data {
@@ -133,6 +149,7 @@ func TranslateBizInfosToContainerStatuses(data []ark.ArkBizInfo, changeTimestamp
 	return ret
 }
 
+// TranslateSimpleBizDataToBizInfos converts simple biz data to biz info
 func TranslateSimpleBizDataToBizInfos(data model.ArkSimpleAllBizInfoData) []ark.ArkBizInfo {
 	ret := make([]ark.ArkBizInfo, 0)
 	for _, simpleBizInfo := range data {
@@ -145,6 +162,7 @@ func TranslateSimpleBizDataToBizInfos(data model.ArkSimpleAllBizInfoData) []ark.
 	return ret
 }
 
+// TranslateSimpleBizDataToArkBizInfo converts simple biz data to ark biz info
 func TranslateSimpleBizDataToArkBizInfo(data model.ArkSimpleBizInfoData) *ark.ArkBizInfo {
 	if len(data) < 3 {
 		return nil
@@ -159,6 +177,7 @@ func TranslateSimpleBizDataToArkBizInfo(data model.ArkSimpleBizInfoData) *ark.Ar
 	}
 }
 
+// GetContainerStateFromBizState maps biz state to container state
 func GetContainerStateFromBizState(bizStateIndex string) vkModel.ContainerState {
 	switch strings.ToLower(bizStateIndex) {
 	case "resolved":
@@ -173,6 +192,7 @@ func GetContainerStateFromBizState(bizStateIndex string) vkModel.ContainerState 
 	return vkModel.ContainerStateWaiting
 }
 
+// GetArkBizStateFromSimpleBizState maps simple state index to ark biz state
 func GetArkBizStateFromSimpleBizState(bizStateIndex string) string {
 	switch bizStateIndex {
 	case "2":
@@ -187,6 +207,7 @@ func GetArkBizStateFromSimpleBizState(bizStateIndex string) string {
 	return ""
 }
 
+// GetLatestState finds the most recent state record and returns its details
 func GetLatestState(state string, records []ark.ArkBizStateRecord) (time.Time, string, string) {
 	latestStateTime := time.UnixMilli(0)
 	reason := ""
@@ -212,6 +233,7 @@ func GetLatestState(state string, records []ark.ArkBizStateRecord) (time.Time, s
 	return latestStateTime, reason, message
 }
 
+// OnBaseUnreachable handles cleanup when a base becomes unreachable
 func OnBaseUnreachable(ctx context.Context, info vkModel.UnreachableNodeInfo, env string, k8sClient client.Client) {
 	// base not ready, delete from api server
 	node := corev1.Node{}
@@ -232,6 +254,7 @@ func OnBaseUnreachable(ctx context.Context, info vkModel.UnreachableNodeInfo, en
 	}
 }
 
+// ExtractNetworkInfoFromNodeInfoData extracts network info from node info
 func ExtractNetworkInfoFromNodeInfoData(initData vkModel.NodeInfo) model.NetworkInfo {
 	portStr := initData.CustomLabels[model.LabelKeyOfArkletPort]
 

@@ -4,33 +4,37 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
-	"github.com/koupleless/virtual-kubelet/common/utils"
-	"github.com/sirupsen/logrus"
 	"io/ioutil"
 	"log"
 	"net/http"
 	"strings"
+
+	"github.com/koupleless/virtual-kubelet/common/utils"
+	"github.com/sirupsen/logrus"
 )
 
+// LogRequest represents a log request with various fields
 type LogRequest struct {
-	TraceID  string            `json:"traceID"`
-	Scene    string            `json:"scene"`
-	Event    string            `json:"event"`
-	TimeUsed int64             `json:"timeUsed,omitempty"`
-	Result   string            `json:"result"`
-	Message  string            `json:"message"`
-	Code     string            `json:"code"`
-	Labels   map[string]string `json:"labels"`
+	TraceID  string            `json:"traceID"`            // Unique identifier for the log request
+	Scene    string            `json:"scene"`              // Scene or context of the log request
+	Event    string            `json:"event"`              // Event that triggered the log request
+	TimeUsed int64             `json:"timeUsed,omitempty"` // Time taken for the event to complete
+	Result   string            `json:"result"`             // Result of the event
+	Message  string            `json:"message"`            // Additional message for the log request
+	Code     string            `json:"code"`               // Error code if the event failed
+	Labels   map[string]string `json:"labels"`             // Additional labels for the log request
 }
 
+// DingtalkMessage represents a message to be sent to Dingtalk
 type DingtalkMessage struct {
-	MsgType  string `json:"msgtype"`
+	MsgType  string `json:"msgtype"` // Message type
 	MarkDown struct {
-		Title string `json:"title"`
-		Text  string `json:"text"`
-	} `json:"markdown"`
+		Title string `json:"title"` // Title of the message
+		Text  string `json:"text"`  // Content of the message
+	} `json:"markdown"` // Markdown content of the message
 }
 
+// formatMap converts a map to a formatted string
 func formatMap(input map[string]string) string {
 	var sb strings.Builder
 	sb.WriteString("[")
@@ -41,8 +45,10 @@ func formatMap(input map[string]string) string {
 	return sb.String()
 }
 
+// webhooks stores the list of webhooks to send messages to
 var webhooks []string
 
+// logHandler handles incoming log requests
 func logHandler(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodPost {
 		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
@@ -60,9 +66,11 @@ func logHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// Construct the message to be sent
 	text := fmt.Sprintf("## MC告警\n\n- **Trace ID**: %s\n- **工单类型**: %s\n- **节点**: %s\n- **结果**: %s\n- **失败信息**: %s\n- **错误代码**: %s\n- **部署信息**: %s",
 		logRequest.TraceID, logRequest.Scene, logRequest.Event, logRequest.Result, logRequest.Message, logRequest.Code, formatMap(logRequest.Labels))
 
+	// Prepare the Dingtalk message
 	dingtalkMessage := DingtalkMessage{
 		MsgType: "markdown",
 		MarkDown: struct {
@@ -92,6 +100,7 @@ func logHandler(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusOK)
 }
 
+// InitReportServer initializes the report server
 func InitReportServer() {
 	reportHooks := utils.GetEnv("REPORT_HOOKS", "")
 
