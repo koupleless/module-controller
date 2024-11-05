@@ -18,6 +18,7 @@ import (
 	"context"
 	"os"
 	"os/signal"
+	"sigs.k8s.io/controller-runtime/pkg/healthz"
 	"strconv"
 	"syscall"
 
@@ -98,7 +99,8 @@ func main() {
 	// Initialize controller manager
 	kubeConfig := config.GetConfigOrDie()
 	mgr, err := manager.New(kubeConfig, manager.Options{
-		Cache: cache.Options{},
+		Cache:                  cache.Options{},
+		HealthProbeBindAddress: ":8081",
 		Metrics: server.Options{
 			BindAddress: ":9090",
 		},
@@ -193,8 +195,16 @@ func main() {
 		}
 	}
 
-	log.G(ctx).Info("Module controller running")
+	if err := mgr.AddHealthzCheck("healthz", healthz.Ping); err != nil {
+		log.G(ctx).Error(err, "unable to set up health check")
+		os.Exit(1)
+	}
+	if err := mgr.AddReadyzCheck("readyz", healthz.Ping); err != nil {
+		log.G(ctx).Error(err, "unable to set up ready check")
+		os.Exit(1)
+	}
 
+	log.G(ctx).Info("Module controller running")
 	err = mgr.Start(signals.SetupSignalHandler())
 	if err != nil {
 		log.G(ctx).WithError(err).Error("failed to start manager")

@@ -199,6 +199,7 @@ func (mdc *ModuleDeploymentController) queryContainerBaseline(req model.QueryBas
 			containers = append(containers, container)
 		}
 	}
+	log.G(context.Background()).Infof("query base line got: %", containers)
 	return containers
 }
 
