@@ -141,6 +141,9 @@ func (m *MqttTunnel) Start(ctx context.Context, clientID, env string) (err error
 
 func (m *MqttTunnel) heartBeatMsgCallback(_ paho.Client, msg paho.Message) {
 	defer msg.Ack()
+
+	logrus.Infof("query health beat callback for %s: %s", msg.Topic(), msg.Payload())
+
 	nodeID := utils.GetBaseIDFromTopic(msg.Topic())
 	var data model.ArkMqttMsg[model.HeartBeatData]
 	err := json.Unmarshal(msg.Payload(), &data)
@@ -158,6 +161,9 @@ func (m *MqttTunnel) heartBeatMsgCallback(_ paho.Client, msg paho.Message) {
 
 func (m *MqttTunnel) queryBaselineMsgCallback(_ paho.Client, msg paho.Message) {
 	defer msg.Ack()
+
+	logrus.Infof("query baseline callback for %s: %s", msg.Topic(), msg.Payload())
+
 	nodeID := utils.GetBaseIDFromTopic(msg.Topic())
 	var data model.ArkMqttMsg[model.Metadata]
 	err := json.Unmarshal(msg.Payload(), &data)
@@ -186,6 +192,9 @@ func (m *MqttTunnel) queryBaselineMsgCallback(_ paho.Client, msg paho.Message) {
 
 func (m *MqttTunnel) healthMsgCallback(_ paho.Client, msg paho.Message) {
 	defer msg.Ack()
+
+	logrus.Infof("query base health status callback for %s: %s", msg.Topic(), msg.Payload())
+
 	nodeID := utils.GetBaseIDFromTopic(msg.Topic())
 	var data model.ArkMqttMsg[ark.HealthResponse]
 	err := json.Unmarshal(msg.Payload(), &data)
@@ -207,6 +216,8 @@ func (m *MqttTunnel) healthMsgCallback(_ paho.Client, msg paho.Message) {
 func (m *MqttTunnel) bizMsgCallback(_ paho.Client, msg paho.Message) {
 	defer msg.Ack()
 
+	logrus.Infof("query all simple biz status callback for %s: %s", msg.Topic(), msg.Payload())
+
 	nodeID := utils.GetBaseIDFromTopic(msg.Topic())
 	var data model.ArkMqttMsg[model.ArkSimpleAllBizInfoData]
 	err := json.Unmarshal(msg.Payload(), &data)
@@ -220,12 +231,14 @@ func (m *MqttTunnel) bizMsgCallback(_ paho.Client, msg paho.Message) {
 
 	if m.onQueryAllBizDataArrived != nil {
 		bizInfos := utils.TranslateSimpleBizDataToBizInfos(data.Data)
+		// 更新 vNode 上 stats
 		m.onQueryAllBizDataArrived(nodeID, utils.TranslateBizInfosToContainerStatuses(bizInfos, data.PublishTimestamp))
 	}
 }
 
 func (m *MqttTunnel) allBizMsgCallback(_ paho.Client, msg paho.Message) {
 	defer msg.Ack()
+	logrus.Infof("query all biz status callback for %s: %s", msg.Topic(), msg.Payload())
 
 	nodeID := utils.GetBaseIDFromTopic(msg.Topic())
 	var data model.ArkMqttMsg[ark.QueryAllArkBizResponse]
@@ -245,6 +258,8 @@ func (m *MqttTunnel) allBizMsgCallback(_ paho.Client, msg paho.Message) {
 
 func (m *MqttTunnel) bizOperationResponseCallback(_ paho.Client, msg paho.Message) {
 	defer msg.Ack()
+
+	logrus.Infof("query biz operation status callback for %s: %s", msg.Topic(), msg.Payload())
 
 	nodeID := utils.GetBaseIDFromTopic(msg.Topic())
 	var data model.ArkMqttMsg[model.BizOperationResponse]
