@@ -322,10 +322,10 @@ func (b *MockMQTTBase) SetBizState(bizIdentity, state, reason, message string) {
 		if state == "ACTIVATED" {
 			stateIndex = "3"
 		}
-		arkBizInfos = append(arkBizInfos, []string{
-			bizInfo.BizName,
-			bizInfo.BizVersion,
-			stateIndex,
+		arkBizInfos = append(arkBizInfos, model.ArkSimpleBizInfoData{
+			Name:    bizInfo.BizName,
+			Version: bizInfo.BizVersion,
+			State:   stateIndex,
 		})
 	}
 

@@ -338,7 +338,7 @@ func TestTranslateHeartBeatDataToNodeInfo(t *testing.T) {
 func TestTranslateQueryAllBizDataToContainerStatuses(t *testing.T) {
 	tests := []struct {
 		data     []ark.ArkBizInfo
-		expected []vkModel.ContainerStatusData
+		expected []vkModel.BizStatusData
 	}{
 		{
 			data: []ark.ArkBizInfo{
@@ -356,12 +356,12 @@ func TestTranslateQueryAllBizDataToContainerStatuses(t *testing.T) {
 					},
 				},
 			},
-			expected: []vkModel.ContainerStatusData{
+			expected: []vkModel.BizStatusData{
 				{
-					Key:        "biz1:1.0.0",
-					Name:       "biz1",
-					PodKey:     vkModel.PodKeyAll,
-					State:      vkModel.ContainerStateActivated,
+					Key:  "biz1:1.0.0",
+					Name: "biz1",
+					//PodKey:     vkModel.PodKeyAll,
+					State:      string(vkModel.BizStateActivated),
 					ChangeTime: time.Date(2022, 1, 1, 0, 0, 0, 0, time.UTC),
 					Reason:     "started",
 					Message:    "Biz started",
@@ -384,12 +384,12 @@ func TestTranslateQueryAllBizDataToContainerStatuses(t *testing.T) {
 					},
 				},
 			},
-			expected: []vkModel.ContainerStatusData{
+			expected: []vkModel.BizStatusData{
 				{
-					Key:        "biz2:2.0.0",
-					Name:       "biz2",
-					PodKey:     vkModel.PodKeyAll,
-					State:      vkModel.ContainerStateDeactivated,
+					Key:  "biz2:2.0.0",
+					Name: "biz2",
+					//PodKey:     vkModel.PodKeyAll,
+					State:      string(vkModel.BizStateDeactivated),
 					ChangeTime: time.Date(2022, 2, 1, 0, 0, 0, 0, time.UTC),
 					Reason:     "stopped",
 					Message:    "Biz stopped",
@@ -405,25 +405,6 @@ func TestTranslateQueryAllBizDataToContainerStatuses(t *testing.T) {
 				t.Errorf("TranslateSimpleBizDataToBizInfos() = %+v; expected %+v", actual, tt.expected)
 			}
 		})
-	}
-}
-
-func TestGetContainerStateFromBizState(t *testing.T) {
-	testCases := []struct {
-		input    string
-		expected vkModel.ContainerState
-	}{
-		{"ACTIVATED", vkModel.ContainerStateActivated},
-		{"DEACTIVATED", vkModel.ContainerStateDeactivated},
-		{"RESOLVED", vkModel.ContainerStateResolved},
-		{"", vkModel.ContainerStateWaiting},
-	}
-
-	for _, tc := range testCases {
-		result := GetContainerStateFromBizState(tc.input)
-		if result != tc.expected {
-			t.Errorf("GetContainerStateFromSimpleBizState(%s) = %v; want %v", tc.input, result, tc.expected)
-		}
 	}
 }
 
@@ -598,10 +579,10 @@ func TestTranslateSimpleBizDataToArkBizInfos(t *testing.T) {
 	}{
 		{
 			input: model.ArkSimpleAllBizInfoData{
-				[]string{
-					"biz1", "0.0.1", "3",
+				model.ArkSimpleBizInfoData{
+					Name: "biz1", Version: "0.0.1", State: "activated",
 				},
-				[]string{},
+				model.ArkSimpleBizInfoData{},
 			},
 			expected: []ark.ArkBizInfo{
 				{
@@ -622,25 +603,12 @@ func TestTranslateSimpleBizDataToArkBizInfos(t *testing.T) {
 }
 
 func TestTranslateSimpleBizDataToArkBizInfo(t *testing.T) {
-	info := TranslateSimpleBizDataToArkBizInfo([]string{})
+	info := TranslateSimpleBizDataToArkBizInfo(model.ArkSimpleBizInfoData{})
 	assert.Nil(t, info)
-	info = TranslateSimpleBizDataToArkBizInfo([]string{
-		"biz1", "0.0.1", "3",
+	info = TranslateSimpleBizDataToArkBizInfo(model.ArkSimpleBizInfoData{
+		Name: "biz1", Version: "0.0.1", State: "activated",
 	})
 	assert.NotNil(t, info)
-}
-
-func TestGetArkBizStateFromSimpleBizState(t *testing.T) {
-	testCases := map[string]string{
-		"2":   "resolved",
-		"3":   "activated",
-		"4":   "deactivated",
-		"123": "",
-	}
-	for input, expected := range testCases {
-		state := GetArkBizStateFromSimpleBizState(input)
-		assert.Equal(t, expected, state)
-	}
 }
 
 func TestGetLatestState_ChangeTimeLenLt3(t *testing.T) {

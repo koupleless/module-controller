@@ -57,4 +57,8 @@ type BuildModuleDeploymentControllerConfig struct {
 type ArkSimpleAllBizInfoData []ArkSimpleBizInfoData
 
 // ArkSimpleBizInfoData represents simplified business information
-type ArkSimpleBizInfoData []string
+type ArkSimpleBizInfoData struct {
+	Name    string `json:"name"`    // Name of the biz
+	Version string `json:"version"` // Version of the biz
+	State   string `json:"state"`   // State of the biz
+}

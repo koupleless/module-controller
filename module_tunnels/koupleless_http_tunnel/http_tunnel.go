@@ -237,7 +237,6 @@ func (h *HttpTunnel) bizOperationResponseCallback(nodeID string, data model.BizO
 	if data.Response.BaseID != nodeID {
 		return
 	}
-	containerState := vkModel.ContainerStateDeactivated
 	if data.Response.Code == "SUCCESS" {
 		if data.Command == model.CommandInstallBiz {
 			// not update here, update in all biz response callback
@@ -248,11 +247,12 @@ func (h *HttpTunnel) bizOperationResponseCallback(nodeID string, data model.BizO
 		logrus.Errorf("biz operation failed: %s\n%s\n%s", data.Response.Message, data.Response.ErrorStackTrace, data.Response.Data.Message)
 	}
 
-	h.onOneBizDataArrived(nodeID, vkModel.ContainerStatusData{
-		Key:        utils.GetBizIdentity(data.BizName, data.BizVersion),
-		Name:       data.BizName,
-		PodKey:     vkModel.PodKeyAll,
-		State:      containerState,
+	h.onOneBizDataArrived(nodeID, vkModel.BizStatusData{
+		Key:  utils.GetBizIdentity(data.BizName, data.BizVersion),
+		Name: data.BizName,
+		// fille PodKey when using
+		// PodKey:     vkModel.PodKeyAll,
+		State:      string(vkModel.BizStateBroken),
 		ChangeTime: time.Now(),
 		Reason:     data.Response.Code,
 		Message:    data.Response.Message,
