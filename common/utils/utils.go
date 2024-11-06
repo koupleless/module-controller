@@ -128,15 +128,16 @@ func TranslateHeartBeatDataToBaselineQuery(data model.Metadata) model.QueryBasel
 }
 
 // TranslateBizInfosToContainerStatuses converts biz info to container statuses
-func TranslateBizInfosToContainerStatuses(data []ark.ArkBizInfo, changeTimestamp int64) []vkModel.ContainerStatusData {
-	ret := make([]vkModel.ContainerStatusData, 0)
+func TranslateBizInfosToContainerStatuses(data []ark.ArkBizInfo, changeTimestamp int64) []vkModel.BizStatusData {
+	ret := make([]vkModel.BizStatusData, 0)
 	for _, bizInfo := range data {
 		updatedTime, reason, message := GetLatestState(bizInfo.BizState, bizInfo.BizStateRecords)
-		statusData := vkModel.ContainerStatusData{
-			Key:        GetBizIdentity(bizInfo.BizName, bizInfo.BizVersion),
-			Name:       bizInfo.BizName,
-			PodKey:     vkModel.PodKeyAll,
-			State:      GetContainerStateFromBizState(bizInfo.BizState),
+		statusData := vkModel.BizStatusData{
+			Key:  GetBizIdentity(bizInfo.BizName, bizInfo.BizVersion),
+			Name: bizInfo.BizName,
+			// fille PodKey when using
+			//PodKey:     vkModel.PodKeyAll,
+			State:      bizInfo.BizState,
 			ChangeTime: time.UnixMilli(changeTimestamp),
 		}
 		if updatedTime.UnixMilli() != 0 {
@@ -164,47 +165,11 @@ func TranslateSimpleBizDataToBizInfos(data model.ArkSimpleAllBizInfoData) []ark.
 
 // TranslateSimpleBizDataToArkBizInfo converts simple biz data to ark biz info
 func TranslateSimpleBizDataToArkBizInfo(data model.ArkSimpleBizInfoData) *ark.ArkBizInfo {
-	if len(data) < 3 {
-		return nil
-	}
-	bizName := data[0]
-	bizVersion := data[1]
-	bizStateIndex := data[2]
 	return &ark.ArkBizInfo{
-		BizName:    bizName,
-		BizVersion: bizVersion,
-		BizState:   GetArkBizStateFromSimpleBizState(bizStateIndex),
+		BizName:    data.Name,
+		BizVersion: data.Version,
+		BizState:   data.State,
 	}
-}
-
-// GetContainerStateFromBizState maps biz state to container state
-func GetContainerStateFromBizState(bizStateIndex string) vkModel.ContainerState {
-	switch strings.ToLower(bizStateIndex) {
-	case "resolved":
-		return vkModel.ContainerStateResolved
-	case "activated":
-		return vkModel.ContainerStateActivated
-	case "deactivated":
-		return vkModel.ContainerStateDeactivated
-	case "broken":
-		return vkModel.ContainerStateDeactivated
-	}
-	return vkModel.ContainerStateWaiting
-}
-
-// GetArkBizStateFromSimpleBizState maps simple state index to ark biz state
-func GetArkBizStateFromSimpleBizState(bizStateIndex string) string {
-	switch bizStateIndex {
-	case "2":
-		return "resolved"
-	case "3":
-		return "activated"
-	case "4":
-		return "deactivated"
-	case "5":
-		return "broken"
-	}
-	return ""
 }
 
 // GetLatestState finds the most recent state record and returns its details
