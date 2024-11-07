@@ -8,13 +8,15 @@ spec:
   serviceAccountName: virtual-kubelet
   containers:
     - name: module-controller
-      image: serverless-registry.cn-shanghai.cr.aliyuncs.com/opensource/release/module_controller:2.1.0
+      image: serverless-registry.cn-shanghai.cr.aliyuncs.com/opensource/release/module_controller:2.1.1
       imagePullPolicy: Always
       resources:
         limits:
           cpu: "1000m"
           memory: "400Mi"
       env:
+        - name: ENABLE_MODULE_DEPLOYMENT_CONTROLLER
+          value: "true"
         - name: ENABLE_MQTT_TUNNEL # mqtt tunnel flag
           value: "true" # true means enable, if enable mqtt tunnel, please configure env below
         - name: MQTT_BROKER # mqtt broker url

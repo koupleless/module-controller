@@ -8,9 +8,7 @@ import (
 	"github.com/koupleless/module_controller/common/model"
 	"github.com/koupleless/module_controller/module_tunnels"
 	"github.com/koupleless/virtual-kubelet/common/log"
-	"github.com/koupleless/virtual-kubelet/common/tracker"
 	vkModel "github.com/koupleless/virtual-kubelet/model"
-	"github.com/sirupsen/logrus"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -262,6 +260,10 @@ func (mdc *ModuleDeploymentController) deploymentDeleteHandler(dep *appsv1.Deplo
 
 // updateDeploymentReplicas updates the replicas of deployments based on node count.
 func (mdc *ModuleDeploymentController) updateDeploymentReplicas(deployments []appsv1.Deployment) {
+
+	// TODO Implement this function.
+	/**
+	*
 	<-mdc.updateToken
 	defer func() {
 		mdc.updateToken <- nil
@@ -280,6 +282,7 @@ func (mdc *ModuleDeploymentController) updateDeploymentReplicas(deployments []ap
 			}
 		}
 	}
+	*/
 }
 
 // updateDeploymentReplicasOfKubernetes updates the replicas of a deployment in Kubernetes.
