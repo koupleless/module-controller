@@ -96,6 +96,8 @@ github.com/koupleless/arkctl v0.2.2-0.20240702132710-aba4f6ced448 h1:+RS4uCLAhY/
 github.com/koupleless/arkctl v0.2.2-0.20240702132710-aba4f6ced448/go.mod h1:nbnAiPEv7x/ZDQ+QsjFWkqwxMDofGmqnFPHa3XpXHyE=
 github.com/koupleless/virtual-kubelet v0.3.3-0.20241107030221-b9ef298146e4 h1:j/c4AIY2EnsKeqYrT+4opUYxqUFFDLnQF6eRMKq+/Eg=
 github.com/koupleless/virtual-kubelet v0.3.3-0.20241107030221-b9ef298146e4/go.mod h1:W64xRKk/hDpGW6WaJdxtY9KQHg0YKHeilBRm0ARxni4=
+github.com/koupleless/virtual-kubelet v0.3.3-0.20241107102310-4039abe2206b h1:MEz+iqPeWETy57PLL/pb4/5UIiIlAq4V1TIQvDcScsQ=
+github.com/koupleless/virtual-kubelet v0.3.3-0.20241107102310-4039abe2206b/go.mod h1:W64xRKk/hDpGW6WaJdxtY9KQHg0YKHeilBRm0ARxni4=
 github.com/kr/pretty v0.2.1/go.mod h1:ipq/a2n7PKx3OHsz4KJII5eveXtPO4qwEXGdVfWzfnI=
 github.com/kr/pretty v0.3.1 h1:flRD4NNwYAUpkphVc1HcthR4KEIFJ65n8Mw5qdRn3LE=
 github.com/kr/pretty v0.3.1/go.mod h1:hoEshYVHaxMs3cyo3Yncou5ZscifuDolrwPKZanG3xk=

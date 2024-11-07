@@ -269,26 +269,25 @@ func (m *MqttTunnel) bizOperationResponseCallback(_ paho.Client, msg paho.Messag
 		return
 	}
 
-	if data.Data.Response.Code == "SUCCESS" {
-		if data.Data.Command == model.CommandInstallBiz {
-			// not update here, update in all biz response callback
-			return
-		}
-	} else {
-		// operation failed, log
-		logrus.Errorf("biz operation failed: %s\n%s:%s", data.Data.Response.Message, data.Data.Response.Data.Code, data.Data.Response.Data.Message)
+	if data.Data.Command == model.CommandInstallBiz && data.Data.Response.Code == "SUCCESS" {
+		m.onOneBizDataArrived(nodeID, vkModel.BizStatusData{
+			Key:  utils.GetBizIdentity(data.Data.BizName, data.Data.BizVersion),
+			Name: data.Data.BizName,
+			// fille PodKey when using
+			// PodKey:     vkModel.PodKeyAll,
+			State:      string(vkModel.BizStateActivated),
+			ChangeTime: time.UnixMilli(data.PublishTimestamp),
+		})
+	} else if data.Data.Command == model.CommandUnInstallBiz && data.Data.Response.Code == "SUCCESS" {
+		m.onOneBizDataArrived(nodeID, vkModel.BizStatusData{
+			Key:  utils.GetBizIdentity(data.Data.BizName, data.Data.BizVersion),
+			Name: data.Data.BizName,
+			// fille PodKey when using
+			// PodKey:     vkModel.PodKeyAll,
+			State:      string(vkModel.BizStateStopped),
+			ChangeTime: time.UnixMilli(data.PublishTimestamp),
+		})
 	}
-
-	m.onOneBizDataArrived(nodeID, vkModel.BizStatusData{
-		Key:  utils.GetBizIdentity(data.Data.BizName, data.Data.BizVersion),
-		Name: data.Data.BizName,
-		// fille PodKey when using
-		// PodKey:     vkModel.PodKeyAll,
-		State:      string(vkModel.BizStateBroken),
-		ChangeTime: time.UnixMilli(data.PublishTimestamp),
-		Reason:     fmt.Sprintf("%sFailed:%s", data.Data.Command, data.Data.Response.Data.Code),
-		Message:    data.Data.Response.Data.Message,
-	})
 }
 
 func (m *MqttTunnel) FetchHealthData(_ context.Context, nodeID string) error {
