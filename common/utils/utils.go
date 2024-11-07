@@ -137,7 +137,8 @@ func TranslateBizInfosToContainerStatuses(data []ark.ArkBizInfo, changeTimestamp
 			Name: bizInfo.BizName,
 			// fille PodKey when using
 			//PodKey:     vkModel.PodKeyAll,
-			State:      bizInfo.BizState,
+			State: bizInfo.BizState,
+			// TODO: 需要使用实际 bizState 变化的时间，而非心跳时间
 			ChangeTime: time.UnixMilli(changeTimestamp),
 		}
 		if updatedTime.UnixMilli() != 0 {
