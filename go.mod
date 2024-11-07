@@ -9,7 +9,7 @@ require (
 	github.com/go-resty/resty/v2 v2.11.0
 	github.com/google/uuid v1.6.0
 	github.com/koupleless/arkctl v0.2.2-0.20240702132710-aba4f6ced448
-	github.com/koupleless/virtual-kubelet v0.3.3-0.20241107030221-b9ef298146e4
+	github.com/koupleless/virtual-kubelet v0.3.3-0.20241107102310-4039abe2206b
 	github.com/onsi/ginkgo/v2 v2.19.0
 	github.com/onsi/gomega v1.33.1
 	github.com/sirupsen/logrus v1.9.3

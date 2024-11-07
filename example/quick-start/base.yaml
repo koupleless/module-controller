@@ -14,6 +14,3 @@ spec:
           containerPort: 8080
         - name: arklet
           containerPort: 1238
-      env:
-        - name: MODULE_CONTROLLER_ADDRESS
-          value: {YOUR_MODULE_CONTROLLER_IP}
