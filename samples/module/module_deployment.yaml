@@ -6,7 +6,7 @@ metadata:  # 资源的元数据/属性
   labels:  # 设定资源的标签
     virtual-kubelet.koupleless.io/component: module-deployment # 资源类型标记， 用于module controller管理
     virtual-kubelet.koupleless.io/env: test
-    module-controller.koupleless.io/strategy: peer
+    virtual-kubelet.koupleless.io/strategy: peer
 spec: # 资源规范字段
   replicas: 1
   revisionHistoryLimit: 3 # 保留历史版本
