@@ -11,9 +11,9 @@ const (
 // Label keys for module controller
 const (
 	// LabelKeyOfSkipReplicasControl indicates whether to skip replicas control
-	LabelKeyOfSkipReplicasControl = "module-controller.koupleless.io/replicas-control"
+	LabelKeyOfSkipReplicasControl = "virtual-kubelet.koupleless.io/replicas-control"
 	// LabelKeyOfVPodDeploymentStrategy specifies the deployment strategy
-	LabelKeyOfVPodDeploymentStrategy = "module-controller.koupleless.io/strategy"
+	LabelKeyOfVPodDeploymentStrategy = "virtual-kubelet.koupleless.io/strategy"
 )
 
 // Component types
