@@ -167,7 +167,7 @@ func prepareModulePod(name, namespace, nodeName string) v1.Pod {
 			Containers: []v1.Container{
 				{
 					Name:  "biz",
-					Image: "suite-biz",
+					Image: "suite-biz.jar",
 					Env: []v1.EnvVar{
 						{
 							Name:  "BIZ_VERSION",

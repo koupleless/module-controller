@@ -40,8 +40,8 @@ type HttpTunnel struct {
 
 	onBaseDiscovered         tunnel.OnNodeDiscovered
 	onHealthDataArrived      tunnel.OnNodeStatusDataArrived
-	onQueryAllBizDataArrived tunnel.OnQueryAllContainerStatusDataArrived
-	onOneBizDataArrived      tunnel.OnSingleContainerStatusChanged
+	onQueryAllBizDataArrived tunnel.OnAllBizStatusArrived
+	onOneBizDataArrived      tunnel.OnSingleBizStatusArrived
 	queryBaseline            module_tunnels.QueryBaseline
 
 	onlineNode map[string]bool
@@ -57,8 +57,8 @@ func (h *HttpTunnel) Ready() bool {
 	return h.ready
 }
 
-// GetContainerUniqueKey returns a unique key for the container
-func (h *HttpTunnel) GetContainerUniqueKey(_ string, container *corev1.Container) string {
+// GetBizUniqueKey returns a unique key for the container
+func (h *HttpTunnel) GetBizUniqueKey(container *corev1.Container) string {
 	return utils.GetBizIdentity(container.Name, utils.GetBizVersionFromContainer(container))
 }
 
@@ -92,7 +92,7 @@ func (h *HttpTunnel) Key() string {
 }
 
 // RegisterCallback registers the callback functions for the tunnel
-func (h *HttpTunnel) RegisterCallback(onBaseDiscovered tunnel.OnNodeDiscovered, onHealthDataArrived tunnel.OnNodeStatusDataArrived, onQueryAllBizDataArrived tunnel.OnQueryAllContainerStatusDataArrived, onOneBizDataArrived tunnel.OnSingleContainerStatusChanged) {
+func (h *HttpTunnel) RegisterCallback(onBaseDiscovered tunnel.OnNodeDiscovered, onHealthDataArrived tunnel.OnNodeStatusDataArrived, onQueryAllBizDataArrived tunnel.OnAllBizStatusArrived, onOneBizDataArrived tunnel.OnSingleBizStatusArrived) {
 	h.onBaseDiscovered = onBaseDiscovered
 
 	h.onHealthDataArrived = onHealthDataArrived
@@ -279,8 +279,8 @@ func (h *HttpTunnel) FetchHealthData(ctx context.Context, nodeID string) error {
 	return nil
 }
 
-// QueryAllContainerStatusData queries all container status data from the node
-func (h *HttpTunnel) QueryAllContainerStatusData(ctx context.Context, nodeID string) error {
+// QueryAllBizStatusData queries all container status data from the node
+func (h *HttpTunnel) QueryAllBizStatusData(ctx context.Context, nodeID string) error {
 	// add a signal to check
 	success := h.queryAllBizLock.TryLock()
 	if !success {
@@ -292,7 +292,7 @@ func (h *HttpTunnel) QueryAllContainerStatusData(ctx context.Context, nodeID str
 	defer func() {
 		h.queryAllBizLock.Unlock()
 		if h.queryAllBizDataOutdated {
-			go h.QueryAllContainerStatusData(ctx, nodeID)
+			go h.QueryAllBizStatusData(ctx, nodeID)
 		}
 	}()
 
@@ -314,8 +314,8 @@ func (h *HttpTunnel) QueryAllContainerStatusData(ctx context.Context, nodeID str
 	return nil
 }
 
-// StartContainer starts a container on the node
-func (h *HttpTunnel) StartContainer(ctx context.Context, nodeID, _ string, container *corev1.Container) error {
+// StartBiz starts a container on the node
+func (h *HttpTunnel) StartBiz(ctx context.Context, nodeID, _ string, container *corev1.Container) error {
 
 	h.Lock()
 	networkInfo, ok := h.nodeNetworkInfoOfNodeID[nodeID]
@@ -343,13 +343,13 @@ func (h *HttpTunnel) StartContainer(ctx context.Context, nodeID, _ string, conta
 
 	h.bizOperationResponseCallback(nodeID, bizOperationResponse)
 
-	go h.QueryAllContainerStatusData(ctx, nodeID)
+	go h.QueryAllBizStatusData(ctx, nodeID)
 
 	return err
 }
 
-// ShutdownContainer shuts down a container on the node
-func (h *HttpTunnel) ShutdownContainer(ctx context.Context, nodeID, _ string, container *corev1.Container) error {
+// StopBiz shuts down a container on the node
+func (h *HttpTunnel) StopBiz(ctx context.Context, nodeID, _ string, container *corev1.Container) error {
 
 	h.Lock()
 	networkInfo, ok := h.nodeNetworkInfoOfNodeID[nodeID]
@@ -376,7 +376,7 @@ func (h *HttpTunnel) ShutdownContainer(ctx context.Context, nodeID, _ string, co
 
 	h.bizOperationResponseCallback(nodeID, bizOperationResponse)
 
-	go h.QueryAllContainerStatusData(ctx, nodeID)
+	go h.QueryAllBizStatusData(ctx, nodeID)
 
 	return err
 }
