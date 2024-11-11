@@ -580,31 +580,29 @@ func TestTranslateSimpleBizDataToArkBizInfos(t *testing.T) {
 		{
 			input: model.ArkSimpleAllBizInfoData{
 				model.ArkSimpleBizInfoData{
-					Name: "biz1", Version: "0.0.1", State: "activated",
+					Name: "biz1", Version: "0.0.1", State: string(vkModel.BizStateActivated),
 				},
 				model.ArkSimpleBizInfoData{},
 			},
 			expected: []ark.ArkBizInfo{
 				{
 					BizName:    "biz1",
-					BizState:   "ACTIVATED",
+					BizState:   string(vkModel.BizStateActivated),
 					BizVersion: "0.0.1",
-				},
+				}, {},
 			},
 		},
 	}
 
 	for _, tc := range testCases {
 		result := TranslateSimpleBizDataToBizInfos(tc.input)
-		if len(result) != 1 {
-			t.Errorf("TranslateHeartBeatDataToBaselineQuery(%s) = %v; want %v", tc.input, result, tc.expected)
-		}
+		assert.Equal(t, len(result), len(tc.expected), fmt.Errorf("TranslateHeartBeatDataToBaselineQuery(%s) = %v; want %v", tc.input, result, tc.expected))
 	}
 }
 
 func TestTranslateSimpleBizDataToArkBizInfo(t *testing.T) {
 	info := TranslateSimpleBizDataToArkBizInfo(model.ArkSimpleBizInfoData{})
-	assert.Nil(t, info)
+	assert.NotNil(t, info)
 	info = TranslateSimpleBizDataToArkBizInfo(model.ArkSimpleBizInfoData{
 		Name: "biz1", Version: "0.0.1", State: "activated",
 	})

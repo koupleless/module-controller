@@ -35,8 +35,8 @@ type MqttTunnel struct {
 
 	onBaseDiscovered         tunnel.OnNodeDiscovered
 	onHealthDataArrived      tunnel.OnNodeStatusDataArrived
-	onQueryAllBizDataArrived tunnel.OnQueryAllContainerStatusDataArrived
-	onOneBizDataArrived      tunnel.OnSingleContainerStatusChanged
+	onQueryAllBizDataArrived tunnel.OnAllBizStatusArrived
+	onOneBizDataArrived      tunnel.OnSingleBizStatusArrived
 	queryBaseline            module_tunnels.QueryBaseline
 
 	onlineNode map[string]bool
@@ -46,7 +46,7 @@ func (m *MqttTunnel) Ready() bool {
 	return m.ready
 }
 
-func (m *MqttTunnel) GetContainerUniqueKey(_ string, container *corev1.Container) string {
+func (m *MqttTunnel) GetBizUniqueKey(container *corev1.Container) string {
 	return utils.GetBizIdentity(container.Name, utils.GetBizVersionFromContainer(container))
 }
 
@@ -85,7 +85,7 @@ func (m *MqttTunnel) Key() string {
 	return "mqtt_tunnel_provider"
 }
 
-func (m *MqttTunnel) RegisterCallback(onBaseDiscovered tunnel.OnNodeDiscovered, onHealthDataArrived tunnel.OnNodeStatusDataArrived, onQueryAllBizDataArrived tunnel.OnQueryAllContainerStatusDataArrived, onOneBizDataArrived tunnel.OnSingleContainerStatusChanged) {
+func (m *MqttTunnel) RegisterCallback(onBaseDiscovered tunnel.OnNodeDiscovered, onHealthDataArrived tunnel.OnNodeStatusDataArrived, onQueryAllBizDataArrived tunnel.OnAllBizStatusArrived, onOneBizDataArrived tunnel.OnSingleBizStatusArrived) {
 	m.onBaseDiscovered = onBaseDiscovered
 
 	m.onHealthDataArrived = onHealthDataArrived
@@ -294,11 +294,11 @@ func (m *MqttTunnel) FetchHealthData(_ context.Context, nodeID string) error {
 	return m.mqttClient.Pub(utils.FormatArkletCommandTopic(m.env, nodeID, model.CommandHealth), mqtt.Qos0, []byte("{}"))
 }
 
-func (m *MqttTunnel) QueryAllContainerStatusData(_ context.Context, nodeID string) error {
+func (m *MqttTunnel) QueryAllBizStatusData(_ context.Context, nodeID string) error {
 	return m.mqttClient.Pub(utils.FormatArkletCommandTopic(m.env, nodeID, model.CommandQueryAllBiz), mqtt.Qos0, []byte("{}"))
 }
 
-func (m *MqttTunnel) StartContainer(ctx context.Context, nodeID, _ string, container *corev1.Container) error {
+func (m *MqttTunnel) StartBiz(ctx context.Context, nodeID, _ string, container *corev1.Container) error {
 	bizModel := utils.TranslateCoreV1ContainerToBizModel(container)
 	logger := log.G(ctx).WithField("bizName", bizModel.BizName).WithField("bizVersion", bizModel.BizVersion)
 	logger.Info("InstallModule")
@@ -306,7 +306,7 @@ func (m *MqttTunnel) StartContainer(ctx context.Context, nodeID, _ string, conta
 	return m.mqttClient.Pub(utils.FormatArkletCommandTopic(m.env, nodeID, model.CommandInstallBiz), mqtt.Qos0, installBizRequestBytes)
 }
 
-func (m *MqttTunnel) ShutdownContainer(ctx context.Context, nodeID, _ string, container *corev1.Container) error {
+func (m *MqttTunnel) StopBiz(ctx context.Context, nodeID, _ string, container *corev1.Container) error {
 	bizModel := utils.TranslateCoreV1ContainerToBizModel(container)
 	unInstallBizRequestBytes, _ := json.Marshal(bizModel)
 	logger := log.G(ctx).WithField("bizName", bizModel.BizName).WithField("bizVersion", bizModel.BizVersion)
