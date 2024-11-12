@@ -60,6 +60,7 @@ var _ = BeforeSuite(func() {
 	os.Setenv("MQTT_USERNAME", "test")
 	os.Setenv("MQTT_PASSWORD", "")
 	os.Setenv("MQTT_CLIENT_PREFIX", "suite-test")
+	os.Setenv("ENABLE_MODULE_REPLICAS_SYNC_WITH_BASE", "true")
 
 	logf.SetLogger(zap.New(zap.WriteTo(GinkgoWriter), zap.UseDevMode(true)))
 	log.L = logruslogger.FromLogrus(logrus.NewEntry(logrus.StandardLogger()))
