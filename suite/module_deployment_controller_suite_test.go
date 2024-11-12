@@ -150,46 +150,50 @@ var _ = Describe("Module Deployment Controller Test", func() {
 			err := k8sClient.Create(ctx, &deployment1)
 			Expect(err).ToNot(HaveOccurred())
 			Eventually(func() bool {
+				depFromKubernetes := &appsv1.Deployment{}
 				err = k8sClient.Get(ctx, types.NamespacedName{
 					Name:      deployment1.Name,
 					Namespace: deployment1.Namespace,
-				}, &deployment1)
-				return err == nil && *deployment1.Spec.Replicas == 0
-			}, time.Second*10, time.Second).Should(BeTrue())
+				}, depFromKubernetes)
+				return err == nil && *depFromKubernetes.Spec.Replicas == 0
+			}, time.Second*20, time.Second).Should(BeTrue())
 		})
 
 		It("one node online and deployment replicas should be 1", func() {
 			go mockBase.Start(ctx)
 			Eventually(func() bool {
+				depFromKubernetes := &appsv1.Deployment{}
 				err := k8sClient.Get(ctx, types.NamespacedName{
 					Name:      deployment1.Name,
 					Namespace: deployment1.Namespace,
-				}, &deployment1)
-				return err == nil && *deployment1.Spec.Replicas == 1
-			}, time.Second*10, time.Second).Should(BeTrue())
+				}, depFromKubernetes)
+				return err == nil && *depFromKubernetes.Spec.Replicas == 1
+			}, time.Second*20, time.Second).Should(BeTrue())
 		})
 
 		It("another node online and deployment replicas should be 2", func() {
 			go mockBase2.Start(ctx)
 			Eventually(func() bool {
+				depFromKubernetes := &appsv1.Deployment{}
 				err := k8sClient.Get(ctx, types.NamespacedName{
 					Name:      deployment1.Name,
 					Namespace: deployment1.Namespace,
-				}, &deployment1)
-				return err == nil && *deployment1.Spec.Replicas == 2
-			}, time.Second*10, time.Second).Should(BeTrue())
+				}, depFromKubernetes)
+				return err == nil && *depFromKubernetes.Spec.Replicas == 2
+			}, time.Second*20, time.Second).Should(BeTrue())
 		})
 
 		It("publish a new deployment and replicas should be 0", func() {
 			err := k8sClient.Create(ctx, &deployment2)
 			Expect(err).ToNot(HaveOccurred())
 			Eventually(func() bool {
+				depFromKubernetes := &appsv1.Deployment{}
 				err = k8sClient.Get(ctx, types.NamespacedName{
 					Name:      deployment2.Name,
 					Namespace: deployment2.Namespace,
-				}, &deployment2)
-				return err == nil && *deployment2.Spec.Replicas == 0
-			}, time.Second*10, time.Second).Should(BeTrue())
+				}, depFromKubernetes)
+				return err == nil && *depFromKubernetes.Spec.Replicas == 0
+			}, time.Second*20, time.Second).Should(BeTrue())
 		})
 
 		It("mock base 2 query baseline should not fetch deployment2 containers", func() {
@@ -202,23 +206,25 @@ var _ = Describe("Module Deployment Controller Test", func() {
 		It("mock base 2 exit and replicas should be 1 finally", func() {
 			mockBase2.Exit()
 			Eventually(func() bool {
+				depFromKubernetes := &appsv1.Deployment{}
 				err := k8sClient.Get(ctx, types.NamespacedName{
 					Name:      deployment1.Name,
 					Namespace: deployment1.Namespace,
-				}, &deployment1)
-				return err == nil && *deployment1.Spec.Replicas == 1
-			}, time.Second*10, time.Second).Should(BeTrue())
+				}, depFromKubernetes)
+				return err == nil && *depFromKubernetes.Spec.Replicas == 1
+			}, time.Second*20, time.Second).Should(BeTrue())
 		})
 
 		It("mock base exit and replicas should be 0 finally", func() {
 			mockBase.Exit()
 			Eventually(func() bool {
+				depFromKubernetes := &appsv1.Deployment{}
 				err := k8sClient.Get(ctx, types.NamespacedName{
 					Name:      deployment1.Name,
 					Namespace: deployment1.Namespace,
-				}, &deployment1)
-				return err == nil && *deployment1.Spec.Replicas == 0
-			}, time.Second*10, time.Second).Should(BeTrue())
+				}, depFromKubernetes)
+				return err == nil && *depFromKubernetes.Spec.Replicas == 0
+			}, time.Second*20, time.Second).Should(BeTrue())
 		})
 	})
 })

@@ -3,6 +3,9 @@ package module_deployment_controller
 import (
 	"context"
 	"errors"
+	"github.com/koupleless/virtual-kubelet/common/tracker"
+	"github.com/koupleless/virtual-kubelet/common/utils"
+	"github.com/sirupsen/logrus"
 	"sort"
 
 	"github.com/koupleless/module_controller/common/model"
@@ -262,12 +265,16 @@ func (mdc *ModuleDeploymentController) deploymentDeleteHandler(dep *appsv1.Deplo
 func (mdc *ModuleDeploymentController) updateDeploymentReplicas(deployments []appsv1.Deployment) {
 
 	// TODO Implement this function.
-	/**
-	*
 	<-mdc.updateToken
 	defer func() {
 		mdc.updateToken <- nil
 	}()
+
+	enableModuleReplicasSameWithBase := utils.GetEnv("ENABLE_MODULE_REPLICAS_SYNC_WITH_BASE", "false")
+	if enableModuleReplicasSameWithBase != "true" {
+		return
+	}
+
 	for _, deployment := range deployments {
 		if deployment.Labels[model.LabelKeyOfVPodDeploymentStrategy] != string(model.VPodDeploymentStrategyPeer) || deployment.Labels[model.LabelKeyOfSkipReplicasControl] == "true" {
 			continue
@@ -282,7 +289,6 @@ func (mdc *ModuleDeploymentController) updateDeploymentReplicas(deployments []ap
 			}
 		}
 	}
-	*/
 }
 
 // updateDeploymentReplicasOfKubernetes updates the replicas of a deployment in Kubernetes.

@@ -168,21 +168,16 @@ func main() {
 		return
 	}
 
-	// Optionally enable module deployment controller
-	enableModuleDeploymentController := utils.GetEnv("ENABLE_MODULE_DEPLOYMENT_CONTROLLER", "false")
+	mdc, err := module_deployment_controller.NewModuleDeploymentController(env, moduleTunnels)
+	if err != nil {
+		log.G(ctx).Error(err, "unable to set up module_deployment_controller")
+		return
+	}
 
-	if enableModuleDeploymentController == "true" {
-		mdc, err := module_deployment_controller.NewModuleDeploymentController(env, moduleTunnels)
-		if err != nil {
-			log.G(ctx).Error(err, "unable to set up module_deployment_controller")
-			return
-		}
-
-		err = mdc.SetupWithManager(ctx, mgr)
-		if err != nil {
-			log.G(ctx).WithError(err).Error("unable to setup vnode controller")
-			return
-		}
+	err = mdc.SetupWithManager(ctx, mgr)
+	if err != nil {
+		log.G(ctx).WithError(err).Error("unable to setup vnode controller")
+		return
 	}
 
 	// Start all tunnels
