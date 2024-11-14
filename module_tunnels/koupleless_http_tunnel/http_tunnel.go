@@ -38,8 +38,8 @@ type HttpTunnel struct {
 
 	ready bool
 
-	onBaseDiscovered         tunnel.OnNodeDiscovered
-	onHealthDataArrived      tunnel.OnNodeStatusDataArrived
+	onBaseDiscovered         tunnel.OnBaseDiscovered
+	onHealthDataArrived      tunnel.OnBaseStatusArrived
 	onQueryAllBizDataArrived tunnel.OnAllBizStatusArrived
 	onOneBizDataArrived      tunnel.OnSingleBizStatusArrived
 	queryBaseline            module_tunnels.QueryBaseline
@@ -92,7 +92,7 @@ func (h *HttpTunnel) Key() string {
 }
 
 // RegisterCallback registers the callback functions for the tunnel
-func (h *HttpTunnel) RegisterCallback(onBaseDiscovered tunnel.OnNodeDiscovered, onHealthDataArrived tunnel.OnNodeStatusDataArrived, onQueryAllBizDataArrived tunnel.OnAllBizStatusArrived, onOneBizDataArrived tunnel.OnSingleBizStatusArrived) {
+func (h *HttpTunnel) RegisterCallback(onBaseDiscovered tunnel.OnBaseDiscovered, onHealthDataArrived tunnel.OnBaseStatusArrived, onQueryAllBizDataArrived tunnel.OnAllBizStatusArrived, onOneBizDataArrived tunnel.OnSingleBizStatusArrived) {
 	h.onBaseDiscovered = onBaseDiscovered
 
 	h.onHealthDataArrived = onHealthDataArrived

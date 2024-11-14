@@ -33,79 +33,79 @@ type MqttTunnel struct {
 
 	ready bool
 
-	onBaseDiscovered         tunnel.OnNodeDiscovered
-	onHealthDataArrived      tunnel.OnNodeStatusDataArrived
-	onQueryAllBizDataArrived tunnel.OnAllBizStatusArrived
-	onOneBizDataArrived      tunnel.OnSingleBizStatusArrived
-	queryBaseline            module_tunnels.QueryBaseline
+	onBaseDiscovered      tunnel.OnBaseDiscovered
+	onHealthDataArrived   tunnel.OnBaseStatusArrived
+	onAllBizStatusArrived tunnel.OnAllBizStatusArrived
+	onOneBizDataArrived   tunnel.OnSingleBizStatusArrived
+	queryBaseline         module_tunnels.QueryBaseline
 
 	onlineNode map[string]bool
 }
 
-func (m *MqttTunnel) Ready() bool {
-	return m.ready
+func (mqttTunnel *MqttTunnel) Ready() bool {
+	return mqttTunnel.ready
 }
 
-func (m *MqttTunnel) GetBizUniqueKey(container *corev1.Container) string {
+func (mqttTunnel *MqttTunnel) GetBizUniqueKey(container *corev1.Container) string {
 	return utils.GetBizIdentity(container.Name, utils.GetBizVersionFromContainer(container))
 }
 
-func (m *MqttTunnel) OnNodeStart(ctx context.Context, nodeID string, _ vkModel.NodeInfo) {
-	m.mqttClient.Sub(fmt.Sprintf(model.BaseHealthTopic, m.env, nodeID), mqtt.Qos1, m.healthMsgCallback)
+func (mqttTunnel *MqttTunnel) OnNodeStart(ctx context.Context, nodeID string, _ vkModel.NodeInfo) {
+	mqttTunnel.mqttClient.Sub(fmt.Sprintf(model.BaseHealthTopic, mqttTunnel.env, nodeID), mqtt.Qos1, mqttTunnel.healthMsgCallback)
 
-	m.mqttClient.Sub(fmt.Sprintf(model.BaseSimpleBizTopic, m.env, nodeID), mqtt.Qos1, m.bizMsgCallback)
+	mqttTunnel.mqttClient.Sub(fmt.Sprintf(model.BaseSimpleBizTopic, mqttTunnel.env, nodeID), mqtt.Qos1, mqttTunnel.bizMsgCallback)
 
-	m.mqttClient.Sub(fmt.Sprintf(model.BaseAllBizTopic, m.env, nodeID), mqtt.Qos1, m.allBizMsgCallback)
+	mqttTunnel.mqttClient.Sub(fmt.Sprintf(model.BaseAllBizTopic, mqttTunnel.env, nodeID), mqtt.Qos1, mqttTunnel.allBizMsgCallback)
 
-	m.mqttClient.Sub(fmt.Sprintf(model.BaseBizOperationResponseTopic, m.env, nodeID), mqtt.Qos1, m.bizOperationResponseCallback)
-	m.Lock()
-	defer m.Unlock()
-	m.onlineNode[nodeID] = true
+	mqttTunnel.mqttClient.Sub(fmt.Sprintf(model.BaseBizOperationResponseTopic, mqttTunnel.env, nodeID), mqtt.Qos1, mqttTunnel.bizOperationResponseCallback)
+	mqttTunnel.Lock()
+	defer mqttTunnel.Unlock()
+	mqttTunnel.onlineNode[nodeID] = true
 }
 
-func (m *MqttTunnel) OnNodeStop(ctx context.Context, nodeID string) {
-	m.mqttClient.UnSub(fmt.Sprintf(model.BaseHealthTopic, m.env, nodeID))
+func (mqttTunnel *MqttTunnel) OnNodeStop(ctx context.Context, nodeID string) {
+	mqttTunnel.mqttClient.UnSub(fmt.Sprintf(model.BaseHealthTopic, mqttTunnel.env, nodeID))
 
-	m.mqttClient.UnSub(fmt.Sprintf(model.BaseSimpleBizTopic, m.env, nodeID))
+	mqttTunnel.mqttClient.UnSub(fmt.Sprintf(model.BaseSimpleBizTopic, mqttTunnel.env, nodeID))
 
-	m.mqttClient.UnSub(fmt.Sprintf(model.BaseAllBizTopic, m.env, nodeID))
+	mqttTunnel.mqttClient.UnSub(fmt.Sprintf(model.BaseAllBizTopic, mqttTunnel.env, nodeID))
 
-	m.mqttClient.UnSub(fmt.Sprintf(model.BaseBizOperationResponseTopic, m.env, nodeID))
+	mqttTunnel.mqttClient.UnSub(fmt.Sprintf(model.BaseBizOperationResponseTopic, mqttTunnel.env, nodeID))
 
-	m.Lock()
-	defer m.Unlock()
-	delete(m.onlineNode, nodeID)
+	mqttTunnel.Lock()
+	defer mqttTunnel.Unlock()
+	delete(mqttTunnel.onlineNode, nodeID)
 }
 
-func (m *MqttTunnel) OnNodeNotReady(ctx context.Context, info vkModel.UnreachableNodeInfo) {
-	utils.OnBaseUnreachable(ctx, info, m.env, m.Client)
+func (mqttTunnel *MqttTunnel) OnNodeNotReady(ctx context.Context, info vkModel.UnreachableNodeInfo) {
+	utils.OnBaseUnreachable(ctx, info, mqttTunnel.env, mqttTunnel.Client)
 }
 
-func (m *MqttTunnel) Key() string {
+func (mqttTunnel *MqttTunnel) Key() string {
 	return "mqtt_tunnel_provider"
 }
 
-func (m *MqttTunnel) RegisterCallback(onBaseDiscovered tunnel.OnNodeDiscovered, onHealthDataArrived tunnel.OnNodeStatusDataArrived, onQueryAllBizDataArrived tunnel.OnAllBizStatusArrived, onOneBizDataArrived tunnel.OnSingleBizStatusArrived) {
-	m.onBaseDiscovered = onBaseDiscovered
+func (mqttTunnel *MqttTunnel) RegisterCallback(onBaseDiscovered tunnel.OnBaseDiscovered, onHealthDataArrived tunnel.OnBaseStatusArrived, onAllBizStatusArrived tunnel.OnAllBizStatusArrived, onOneBizDataArrived tunnel.OnSingleBizStatusArrived) {
+	mqttTunnel.onBaseDiscovered = onBaseDiscovered
 
-	m.onHealthDataArrived = onHealthDataArrived
+	mqttTunnel.onHealthDataArrived = onHealthDataArrived
 
-	m.onQueryAllBizDataArrived = onQueryAllBizDataArrived
+	mqttTunnel.onAllBizStatusArrived = onAllBizStatusArrived
 
-	m.onOneBizDataArrived = onOneBizDataArrived
+	mqttTunnel.onOneBizDataArrived = onOneBizDataArrived
 }
 
-func (m *MqttTunnel) RegisterQuery(queryBaseline module_tunnels.QueryBaseline) {
-	m.queryBaseline = queryBaseline
+func (mqttTunnel *MqttTunnel) RegisterQuery(queryBaseline module_tunnels.QueryBaseline) {
+	mqttTunnel.queryBaseline = queryBaseline
 }
 
-func (m *MqttTunnel) Start(ctx context.Context, clientID, env string) (err error) {
+func (mqttTunnel *MqttTunnel) Start(ctx context.Context, clientID, env string) (err error) {
 	c := &MqttConfig{}
 	c.init()
 	clientID = fmt.Sprintf("%s@@@%s", c.MqttClientPrefix, clientID)
-	m.onlineNode = make(map[string]bool)
-	m.env = env
-	m.mqttClient, err = mqtt.NewMqttClient(&mqtt.ClientConfig{
+	mqttTunnel.onlineNode = make(map[string]bool)
+	mqttTunnel.env = env
+	mqttTunnel.mqttClient, err = mqtt.NewMqttClient(&mqtt.ClientConfig{
 		Broker:        c.MqttBroker,
 		Port:          c.MqttPort,
 		ClientID:      clientID,
@@ -117,15 +117,15 @@ func (m *MqttTunnel) Start(ctx context.Context, clientID, env string) (err error
 		CleanSession:  true,
 		OnConnectHandler: func(client paho.Client) {
 			log.G(ctx).Info("MQTT client connected :", clientID)
-			client.Subscribe(fmt.Sprintf(model.BaseHeartBeatTopic, m.env), mqtt.Qos1, m.heartBeatMsgCallback)
-			client.Subscribe(fmt.Sprintf(model.BaseQueryBaselineTopic, m.env), mqtt.Qos1, m.queryBaselineMsgCallback)
-			for nodeId, _ := range m.onlineNode {
-				m.OnNodeStart(ctx, nodeId, vkModel.NodeInfo{})
+			client.Subscribe(fmt.Sprintf(model.BaseHeartBeatTopic, mqttTunnel.env), mqtt.Qos1, mqttTunnel.heartBeatMsgCallback)
+			client.Subscribe(fmt.Sprintf(model.BaseQueryBaselineTopic, mqttTunnel.env), mqtt.Qos1, mqttTunnel.queryBaselineMsgCallback)
+			for nodeId, _ := range mqttTunnel.onlineNode {
+				mqttTunnel.OnNodeStart(ctx, nodeId, vkModel.NodeInfo{})
 			}
 		},
 	})
 
-	err = m.mqttClient.Connect()
+	err = mqttTunnel.mqttClient.Connect()
 	if err != nil {
 		log.G(ctx).WithError(err).Error("mqtt connect error")
 		return
@@ -133,13 +133,13 @@ func (m *MqttTunnel) Start(ctx context.Context, clientID, env string) (err error
 
 	go func() {
 		<-ctx.Done()
-		m.mqttClient.Disconnect()
+		mqttTunnel.mqttClient.Disconnect()
 	}()
-	m.ready = true
+	mqttTunnel.ready = true
 	return
 }
 
-func (m *MqttTunnel) heartBeatMsgCallback(_ paho.Client, msg paho.Message) {
+func (mqttTunnel *MqttTunnel) heartBeatMsgCallback(_ paho.Client, msg paho.Message) {
 	defer msg.Ack()
 
 	logrus.Infof("query health beat callback for %s: %s", msg.Topic(), msg.Payload())
@@ -154,12 +154,12 @@ func (m *MqttTunnel) heartBeatMsgCallback(_ paho.Client, msg paho.Message) {
 	if utils.Expired(data.PublishTimestamp, 1000*10) {
 		return
 	}
-	if m.onBaseDiscovered != nil {
-		m.onBaseDiscovered(nodeID, utils.TranslateHeartBeatDataToNodeInfo(data.Data), m)
+	if mqttTunnel.onBaseDiscovered != nil {
+		mqttTunnel.onBaseDiscovered(nodeID, utils.TranslateHeartBeatDataToNodeInfo(data.Data), mqttTunnel)
 	}
 }
 
-func (m *MqttTunnel) queryBaselineMsgCallback(_ paho.Client, msg paho.Message) {
+func (mqttTunnel *MqttTunnel) queryBaselineMsgCallback(_ paho.Client, msg paho.Message) {
 	defer msg.Ack()
 
 	logrus.Infof("query baseline callback for %s: %s", msg.Topic(), msg.Payload())
@@ -174,15 +174,15 @@ func (m *MqttTunnel) queryBaselineMsgCallback(_ paho.Client, msg paho.Message) {
 	if utils.Expired(data.PublishTimestamp, 1000*10) {
 		return
 	}
-	if m.queryBaseline != nil {
-		baseline := m.queryBaseline(utils.TranslateHeartBeatDataToBaselineQuery(data.Data))
+	if mqttTunnel.queryBaseline != nil {
+		baseline := mqttTunnel.queryBaseline(utils.TranslateHeartBeatDataToBaselineQuery(data.Data))
 		go func() {
 			baselineBizs := make([]ark.BizModel, 0)
 			for _, container := range baseline {
 				baselineBizs = append(baselineBizs, utils.TranslateCoreV1ContainerToBizModel(&container))
 			}
 			baselineBytes, _ := json.Marshal(baselineBizs)
-			err = m.mqttClient.Pub(utils.FormatBaselineResponseTopic(m.env, nodeID), mqtt.Qos1, baselineBytes)
+			err = mqttTunnel.mqttClient.Pub(utils.FormatBaselineResponseTopic(mqttTunnel.env, nodeID), mqtt.Qos1, baselineBytes)
 			if err != nil {
 				logrus.WithError(err).Errorf("Error publishing baseline response data")
 			}
@@ -190,7 +190,7 @@ func (m *MqttTunnel) queryBaselineMsgCallback(_ paho.Client, msg paho.Message) {
 	}
 }
 
-func (m *MqttTunnel) healthMsgCallback(_ paho.Client, msg paho.Message) {
+func (mqttTunnel *MqttTunnel) healthMsgCallback(_ paho.Client, msg paho.Message) {
 	defer msg.Ack()
 
 	logrus.Infof("query base health status callback for %s: %s", msg.Topic(), msg.Payload())
@@ -208,12 +208,12 @@ func (m *MqttTunnel) healthMsgCallback(_ paho.Client, msg paho.Message) {
 	if data.Data.Code != "SUCCESS" {
 		return
 	}
-	if m.onHealthDataArrived != nil {
-		m.onHealthDataArrived(nodeID, utils.TranslateHealthDataToNodeStatus(data.Data.Data.HealthData))
+	if mqttTunnel.onHealthDataArrived != nil {
+		mqttTunnel.onHealthDataArrived(nodeID, utils.TranslateHealthDataToNodeStatus(data.Data.Data.HealthData))
 	}
 }
 
-func (m *MqttTunnel) bizMsgCallback(_ paho.Client, msg paho.Message) {
+func (mqttTunnel *MqttTunnel) bizMsgCallback(_ paho.Client, msg paho.Message) {
 	defer msg.Ack()
 
 	logrus.Infof("query all simple biz status callback for %s: %s", msg.Topic(), msg.Payload())
@@ -229,14 +229,14 @@ func (m *MqttTunnel) bizMsgCallback(_ paho.Client, msg paho.Message) {
 		return
 	}
 
-	if m.onQueryAllBizDataArrived != nil {
+	if mqttTunnel.onAllBizStatusArrived != nil {
 		bizInfos := utils.TranslateSimpleBizDataToBizInfos(data.Data)
 		// 更新 vNode 上 stats
-		m.onQueryAllBizDataArrived(nodeID, utils.TranslateBizInfosToContainerStatuses(bizInfos, data.PublishTimestamp))
+		mqttTunnel.onAllBizStatusArrived(nodeID, utils.TranslateBizInfosToContainerStatuses(bizInfos, data.PublishTimestamp))
 	}
 }
 
-func (m *MqttTunnel) allBizMsgCallback(_ paho.Client, msg paho.Message) {
+func (mqttTunnel *MqttTunnel) allBizMsgCallback(_ paho.Client, msg paho.Message) {
 	defer msg.Ack()
 	logrus.Infof("query all biz status callback for %s: %s", msg.Topic(), msg.Payload())
 
@@ -251,12 +251,12 @@ func (m *MqttTunnel) allBizMsgCallback(_ paho.Client, msg paho.Message) {
 		return
 	}
 
-	if m.onQueryAllBizDataArrived != nil {
-		m.onQueryAllBizDataArrived(nodeID, utils.TranslateBizInfosToContainerStatuses(data.Data.GenericArkResponseBase.Data, data.PublishTimestamp))
+	if mqttTunnel.onAllBizStatusArrived != nil {
+		mqttTunnel.onAllBizStatusArrived(nodeID, utils.TranslateBizInfosToContainerStatuses(data.Data.GenericArkResponseBase.Data, data.PublishTimestamp))
 	}
 }
 
-func (m *MqttTunnel) bizOperationResponseCallback(_ paho.Client, msg paho.Message) {
+func (mqttTunnel *MqttTunnel) bizOperationResponseCallback(_ paho.Client, msg paho.Message) {
 	defer msg.Ack()
 
 	logrus.Infof("query biz operation status callback for %s: %s", msg.Topic(), msg.Payload())
@@ -270,7 +270,7 @@ func (m *MqttTunnel) bizOperationResponseCallback(_ paho.Client, msg paho.Messag
 	}
 
 	if data.Data.Command == model.CommandInstallBiz && data.Data.Response.Code == "SUCCESS" {
-		m.onOneBizDataArrived(nodeID, vkModel.BizStatusData{
+		mqttTunnel.onOneBizDataArrived(nodeID, vkModel.BizStatusData{
 			Key:  utils.GetBizIdentity(data.Data.BizName, data.Data.BizVersion),
 			Name: data.Data.BizName,
 			// fille PodKey when using
@@ -279,7 +279,7 @@ func (m *MqttTunnel) bizOperationResponseCallback(_ paho.Client, msg paho.Messag
 			ChangeTime: time.UnixMilli(data.PublishTimestamp),
 		})
 	} else if data.Data.Command == model.CommandUnInstallBiz && data.Data.Response.Code == "SUCCESS" {
-		m.onOneBizDataArrived(nodeID, vkModel.BizStatusData{
+		mqttTunnel.onOneBizDataArrived(nodeID, vkModel.BizStatusData{
 			Key:  utils.GetBizIdentity(data.Data.BizName, data.Data.BizVersion),
 			Name: data.Data.BizName,
 			// fille PodKey when using
@@ -290,26 +290,26 @@ func (m *MqttTunnel) bizOperationResponseCallback(_ paho.Client, msg paho.Messag
 	}
 }
 
-func (m *MqttTunnel) FetchHealthData(_ context.Context, nodeID string) error {
-	return m.mqttClient.Pub(utils.FormatArkletCommandTopic(m.env, nodeID, model.CommandHealth), mqtt.Qos0, []byte("{}"))
+func (mqttTunnel *MqttTunnel) FetchHealthData(_ context.Context, nodeID string) error {
+	return mqttTunnel.mqttClient.Pub(utils.FormatArkletCommandTopic(mqttTunnel.env, nodeID, model.CommandHealth), mqtt.Qos0, []byte("{}"))
 }
 
-func (m *MqttTunnel) QueryAllBizStatusData(_ context.Context, nodeID string) error {
-	return m.mqttClient.Pub(utils.FormatArkletCommandTopic(m.env, nodeID, model.CommandQueryAllBiz), mqtt.Qos0, []byte("{}"))
+func (mqttTunnel *MqttTunnel) QueryAllBizStatusData(_ context.Context, nodeID string) error {
+	return mqttTunnel.mqttClient.Pub(utils.FormatArkletCommandTopic(mqttTunnel.env, nodeID, model.CommandQueryAllBiz), mqtt.Qos0, []byte("{}"))
 }
 
-func (m *MqttTunnel) StartBiz(ctx context.Context, nodeID, _ string, container *corev1.Container) error {
+func (mqttTunnel *MqttTunnel) StartBiz(ctx context.Context, nodeID, _ string, container *corev1.Container) error {
 	bizModel := utils.TranslateCoreV1ContainerToBizModel(container)
 	logger := log.G(ctx).WithField("bizName", bizModel.BizName).WithField("bizVersion", bizModel.BizVersion)
 	logger.Info("InstallModule")
 	installBizRequestBytes, _ := json.Marshal(bizModel)
-	return m.mqttClient.Pub(utils.FormatArkletCommandTopic(m.env, nodeID, model.CommandInstallBiz), mqtt.Qos0, installBizRequestBytes)
+	return mqttTunnel.mqttClient.Pub(utils.FormatArkletCommandTopic(mqttTunnel.env, nodeID, model.CommandInstallBiz), mqtt.Qos0, installBizRequestBytes)
 }
 
-func (m *MqttTunnel) StopBiz(ctx context.Context, nodeID, _ string, container *corev1.Container) error {
+func (mqttTunnel *MqttTunnel) StopBiz(ctx context.Context, nodeID, _ string, container *corev1.Container) error {
 	bizModel := utils.TranslateCoreV1ContainerToBizModel(container)
 	unInstallBizRequestBytes, _ := json.Marshal(bizModel)
 	logger := log.G(ctx).WithField("bizName", bizModel.BizName).WithField("bizVersion", bizModel.BizVersion)
 	logger.Info("UninstallModule")
-	return m.mqttClient.Pub(utils.FormatArkletCommandTopic(m.env, nodeID, model.CommandUnInstallBiz), mqtt.Qos0, unInstallBizRequestBytes)
+	return mqttTunnel.mqttClient.Pub(utils.FormatArkletCommandTopic(mqttTunnel.env, nodeID, model.CommandUnInstallBiz), mqtt.Qos0, unInstallBizRequestBytes)
 }
