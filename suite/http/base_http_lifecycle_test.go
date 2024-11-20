@@ -24,8 +24,8 @@ var _ = Describe("Base Lifecycle Test", func() {
 			time.Sleep(time.Second)
 
 			go mockHttpBase.Start(ctx, clientID)
-			vnode := &v1.Node{}
 			Eventually(func() bool {
+				vnode := &v1.Node{}
 				err := k8sClient.Get(ctx, types.NamespacedName{
 					Name: utils.FormatNodeName(httpNodeID, env),
 				}, vnode)
@@ -109,6 +109,8 @@ var _ = Describe("Base Lifecycle Test", func() {
 
 		It("base id changed finally exit", func() {
 			mockHttpBase.Metadata.Identity = "changed-base-id"
+			mockHttpBase.Exit()
+
 			Eventually(func() bool {
 				vnode := &v1.Node{}
 				err := k8sClient.Get(ctx, types.NamespacedName{
@@ -117,7 +119,6 @@ var _ = Describe("Base Lifecycle Test", func() {
 				return errors.IsNotFound(err)
 			}, time.Second*50, time.Second).Should(BeTrue())
 
-			mockHttpBase.Exit()
 		})
 	})
 

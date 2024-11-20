@@ -83,7 +83,17 @@ var _ = Describe("Base Lifecycle Test", func() {
 				return errors.IsNotFound(err)
 			}, time.Second*50, time.Second).Should(BeTrue())
 
+		})
+
+		It("base offline with deactive message and finally exit", func() {
 			mockMqttBase.Exit()
+			Eventually(func() bool {
+				vnode := &v1.Node{}
+				err := k8sClient.Get(ctx, types.NamespacedName{
+					Name: utils.FormatNodeName(mqttNodeID, env),
+				}, vnode)
+				return errors.IsNotFound(err)
+			}, time.Second*50, time.Second).Should(BeTrue())
 		})
 	})
 })
