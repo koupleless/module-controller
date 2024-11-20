@@ -215,7 +215,7 @@ func (h *HttpTunnel) healthMsgCallback(nodeID string, data ark_service.HealthRes
 		return
 	}
 	if h.onHealthDataArrived != nil {
-		h.onHealthDataArrived(nodeID, utils.ConvertHealthDataToNodeStatus(data.Data.HealthData))
+		h.onHealthDataArrived(utils2.FormatNodeName(nodeID, h.env), utils.ConvertHealthDataToNodeStatus(data.Data.HealthData))
 	}
 }
 
@@ -225,7 +225,7 @@ func (h *HttpTunnel) allBizMsgCallback(nodeID string, data ark_service.QueryAllB
 		return
 	}
 	if h.onQueryAllBizDataArrived != nil {
-		h.onQueryAllBizDataArrived(nodeID, utils.TranslateBizInfosToContainerStatuses(data.GenericArkResponseBase.Data, time.Now().UnixMilli()))
+		h.onQueryAllBizDataArrived(utils2.FormatNodeName(nodeID, h.env), utils.TranslateBizInfosToContainerStatuses(data.GenericArkResponseBase.Data, time.Now().UnixMilli()))
 	}
 }
 
@@ -241,7 +241,7 @@ func (h *HttpTunnel) bizOperationResponseCallback(nodeID string, data model.BizO
 		logrus.Errorf("biz operation failed: %s\n%s\n%s", data.Response.Message, data.Response.ErrorStackTrace, data.Response.Data.Message)
 	}
 
-	h.onOneBizDataArrived(nodeID, vkModel.BizStatusData{
+	h.onOneBizDataArrived(utils2.FormatNodeName(nodeID, h.env), vkModel.BizStatusData{
 		Key:  utils.GetBizIdentity(data.BizName, data.BizVersion),
 		Name: data.BizName,
 		// fille PodKey when using

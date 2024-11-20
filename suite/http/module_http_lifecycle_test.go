@@ -25,8 +25,8 @@ var _ = Describe("Module Lifecycle Test", func() {
 	Context("pod install", func() {
 		It("base should become a ready vnode eventually", func() {
 			go mockBase.Start(ctx, clientID)
-			vnode := &v1.Node{}
 			Eventually(func() bool {
+				vnode := &v1.Node{}
 				err := k8sClient.Get(ctx, types.NamespacedName{
 					Name: utils.FormatNodeName(nodeID, env),
 				}, vnode)

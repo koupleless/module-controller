@@ -17,7 +17,6 @@ import (
 
 type MockHttpBase struct {
 	sync.Mutex
-	ID        string
 	Env       string
 	CurrState string
 	Metadata  model.BaseMetadata
