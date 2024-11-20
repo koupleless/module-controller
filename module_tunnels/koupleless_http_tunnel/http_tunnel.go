@@ -33,7 +33,7 @@ type HttpTunnel struct {
 
 	kubeClient client.Client
 	env        string
-	Port       int
+	port       int
 
 	ready bool
 
@@ -57,7 +57,7 @@ func NewHttpTunnel(env string, kubeClient client.Client, moduleDeploymentControl
 		env:                        env,
 		kubeClient:                 kubeClient,
 		moduleDeploymentController: moduleDeploymentController,
-		Port:                       port,
+		port:                       port,
 	}
 }
 
@@ -135,7 +135,7 @@ func (h *HttpTunnel) startBaseDiscovery(ctx context.Context) {
 	// start a simple http server to handle base discovery, exit when ctx done
 	mux := http.NewServeMux()
 	server := &http.Server{
-		Addr:    fmt.Sprintf(":%d", h.Port),
+		Addr:    fmt.Sprintf(":%d", h.port),
 		Handler: mux,
 	}
 
@@ -197,7 +197,7 @@ func (h *HttpTunnel) startBaseDiscovery(ctx context.Context) {
 		}
 	}()
 
-	logger.Infof("http base discovery server started, listening on port %d", h.Port)
+	logger.Infof("http base discovery server started, listening on port %d", h.port)
 
 	defer func() {
 		shutdownCtx, cancel := context.WithTimeout(context.Background(), 5*time.Second)

@@ -38,10 +38,9 @@ type BizOperationResponse struct {
 // QueryBaselineRequest is the request parameters of query baseline func
 // Used to query baseline configuration with filters
 type QueryBaselineRequest struct {
-	Identity     string            `json:"identity"`     // Identity base to filter by
-	ClusterName  string            `json:"name"`         // ClusterName to filter by
-	Version      string            `json:"version"`      // Version to filter by
-	CustomLabels map[string]string `json:"customLabels"` // Additional label filters
+	Identity    string `json:"identity"` // Identity base to filter by
+	ClusterName string `json:"name"`     // ClusterName to filter by
+	Version     string `json:"version"`  // Version to filter by
 }
 
 // BuildModuleDeploymentControllerConfig contains controller configuration

@@ -6,6 +6,7 @@ import (
 	"github.com/koupleless/virtual-kubelet/common/tracker"
 	"github.com/koupleless/virtual-kubelet/common/utils"
 	"github.com/sirupsen/logrus"
+	errors2 "k8s.io/apimachinery/pkg/api/errors"
 	"sort"
 
 	"github.com/koupleless/module_controller/common/model"
@@ -166,15 +167,11 @@ func (mdc *ModuleDeploymentController) SetupWithManager(ctx context.Context, mgr
 // QueryContainerBaseline queries the baseline for a given container.
 func (mdc *ModuleDeploymentController) QueryContainerBaseline(req model.QueryBaselineRequest) []corev1.Container {
 	labelMap := map[string]string{
-		vkModel.LabelKeyOfEnv:              mdc.env,
-		vkModel.LabelKeyOfVNodeVersion:     req.Version,
-		vkModel.LabelKeyOfVNodeClusterName: req.ClusterName,
+		// TODO: should add those label to deployments by module controller
+		vkModel.LabelKeyOfEnv: mdc.env,
 	}
-	for key, value := range req.CustomLabels {
-		labelMap[key] = value
-	}
-	relatedDeploymentsByNode := appsv1.DeploymentList{}
-	err := mdc.cache.List(context.Background(), &relatedDeploymentsByNode, &client.ListOptions{
+	allDeploymentList := appsv1.DeploymentList{}
+	err := mdc.cache.List(context.Background(), &allDeploymentList, &client.ListOptions{
 		LabelSelector: labels.SelectorFromSet(labelMap),
 	})
 	if err != nil {
@@ -183,14 +180,17 @@ func (mdc *ModuleDeploymentController) QueryContainerBaseline(req model.QueryBas
 	}
 
 	// get relate containers of related deployments
-	sort.Slice(relatedDeploymentsByNode.Items, func(i, j int) bool {
-		return relatedDeploymentsByNode.Items[i].CreationTimestamp.UnixMilli() < relatedDeploymentsByNode.Items[j].CreationTimestamp.UnixMilli()
+	sort.Slice(allDeploymentList.Items, func(i, j int) bool {
+		return allDeploymentList.Items[i].CreationTimestamp.UnixMilli() < allDeploymentList.Items[j].CreationTimestamp.UnixMilli()
 	})
 	// record last version of biz model with same name
 	containers := make([]corev1.Container, 0)
-	for _, deployment := range relatedDeploymentsByNode.Items {
-		for _, container := range deployment.Spec.Template.Spec.Containers {
-			containers = append(containers, container)
+	for _, deployment := range allDeploymentList.Items {
+		clusterName := getClusterNameFromDeployment(&deployment)
+		if clusterName != "" && clusterName != req.ClusterName {
+			for _, container := range deployment.Spec.Template.Spec.Containers {
+				containers = append(containers, container)
+			}
 		}
 	}
 	log.G(context.Background()).Infof("query base line got: %", containers)
@@ -226,7 +226,7 @@ func (mdc *ModuleDeploymentController) GetRelatedDeploymentsByNode(ctx context.C
 	}
 
 	deploymentList := appsv1.DeploymentList{}
-	err := mdc.cache.List(ctx, &appsv1.DeploymentList{}, &client.ListOptions{
+	err := mdc.cache.List(ctx, &deploymentList, &client.ListOptions{
 		LabelSelector: labels.SelectorFromSet(map[string]string{
 			model.LabelKeyOfVPodDeploymentStrategy: string(model.VPodDeploymentStrategyPeer),
 		}),
@@ -298,7 +298,7 @@ func (mdc *ModuleDeploymentController) updateDeploymentReplicas(ctx context.Cont
 
 		if int32(sameClusterNodeCount) != *deployment.Spec.Replicas {
 			err := tracker.G().FuncTrack(deployment.Labels[vkModel.LabelKeyOfTraceID], vkModel.TrackSceneVPodDeploy, model.TrackEventVPodPeerDeploymentReplicaModify, deployment.Labels, func() (error, vkModel.ErrorCode) {
-				return mdc.updateDeploymentReplicasOfKubernetes(sameClusterNodeCount, deployment)
+				return mdc.updateDeploymentReplicasOfKubernetes(ctx, sameClusterNodeCount, deployment)
 			})
 			if err != nil {
 				logrus.WithError(err).Errorf("failed to update deployment replicas of %s", deployment.Name)
@@ -371,10 +371,13 @@ func (mdc *ModuleDeploymentController) getReadyNodeCount(ctx context.Context, cl
 }
 
 // updateDeploymentReplicasOfKubernetes updates the replicas of a deployment in Kubernetes.
-func (mdc *ModuleDeploymentController) updateDeploymentReplicasOfKubernetes(replicas int, deployment appsv1.Deployment) (error, vkModel.ErrorCode) {
+func (mdc *ModuleDeploymentController) updateDeploymentReplicasOfKubernetes(ctx context.Context, replicas int, deployment appsv1.Deployment) (error, vkModel.ErrorCode) {
+	old := deployment.DeepCopy()
+	patch := client.MergeFrom(old)
+
 	deployment.Spec.Replicas = ptr.To[int32](int32(replicas))
-	err := mdc.client.Update(context.TODO(), &deployment)
-	if err != nil {
+	err := mdc.client.Patch(ctx, &deployment, patch)
+	if err != nil && !errors2.IsNotFound(err) {
 		return err, model.CodeKubernetesOperationFailed
 	}
 	return nil, vkModel.CodeSuccess

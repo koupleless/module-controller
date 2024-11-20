@@ -124,9 +124,6 @@ func ConvertBaseMetadataToBaselineQuery(data model.BaseMetadata) model.QueryBase
 		Identity:    data.Identity,
 		ClusterName: data.ClusterName,
 		Version:     data.Version,
-		CustomLabels: map[string]string{
-			model.LabelKeyOfTechStack: "java",
-		},
 	}
 }
 

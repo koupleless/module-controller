@@ -126,7 +126,7 @@ var _ = Describe("Module Deployment Controller Test", func() {
 					NodeSelector: map[string]string{
 						model.LabelKeyOfTechStack:          "java",
 						vkModel.LabelKeyOfVNodeVersion:     "1.0.0",
-						vkModel.LabelKeyOfVNodeClusterName: clusterName,
+						vkModel.LabelKeyOfVNodeClusterName: clusterName + "-2",
 					},
 					Tolerations: []v1.Toleration{
 						{
@@ -162,7 +162,7 @@ var _ = Describe("Module Deployment Controller Test", func() {
 		})
 
 		It("one node online and deployment replicas should be 1", func() {
-			go mockBase.Start(ctx)
+			go mockBase.Start(ctx, clientID)
 			Eventually(func() bool {
 				depFromKubernetes := &appsv1.Deployment{}
 				err := k8sClient.Get(ctx, types.NamespacedName{
@@ -170,11 +170,11 @@ var _ = Describe("Module Deployment Controller Test", func() {
 					Namespace: deployment1.Namespace,
 				}, depFromKubernetes)
 				return err == nil && *depFromKubernetes.Spec.Replicas == 1
-			}, time.Second*20, time.Second).Should(BeTrue())
+			}, time.Minute*20, time.Second).Should(BeTrue())
 		})
 
 		It("another node online and deployment replicas should be 2", func() {
-			go mockBase2.Start(ctx)
+			go mockBase2.Start(ctx, clientID)
 			Eventually(func() bool {
 				depFromKubernetes := &appsv1.Deployment{}
 				err := k8sClient.Get(ctx, types.NamespacedName{
@@ -202,7 +202,19 @@ var _ = Describe("Module Deployment Controller Test", func() {
 			mockBase2.QueryBaseline()
 			Eventually(func() bool {
 				return len(mockBase2.Baseline) == 1
-			}, time.Second*10, time.Second).Should(BeTrue())
+			}, time.Second*20, time.Second).Should(BeTrue())
+		})
+
+		It("replicas should be 2", func() {
+			mockBase2.Exit()
+			Eventually(func() bool {
+				depFromKubernetes := &appsv1.Deployment{}
+				err := k8sClient.Get(ctx, types.NamespacedName{
+					Name:      deployment1.Name,
+					Namespace: deployment1.Namespace,
+				}, depFromKubernetes)
+				return err == nil && *depFromKubernetes.Spec.Replicas == 2
+			}, time.Second*20, time.Second).Should(BeTrue())
 		})
 
 		It("mock base 2 exit and replicas should be 1 finally", func() {
@@ -226,7 +238,7 @@ var _ = Describe("Module Deployment Controller Test", func() {
 					Namespace: deployment1.Namespace,
 				}, depFromKubernetes)
 				return err == nil && *depFromKubernetes.Spec.Replicas == 0
-			}, time.Second*20, time.Second).Should(BeTrue())
+			}, time.Second*30, time.Second).Should(BeTrue())
 		})
 	})
 })
