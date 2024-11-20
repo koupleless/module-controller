@@ -1,6 +1,7 @@
 package module_deployment_controller
 
 import (
+	"context"
 	"github.com/stretchr/testify/assert"
 	"testing"
 )
@@ -11,15 +12,12 @@ func TestDeploymentHandler(t *testing.T) {
 		updateToken:    make(chan interface{}),
 	}
 
-	c.deploymentAddHandler(nil)
+	ctx := context.Background()
+	c.deploymentAddHandler(ctx, nil)
 
 	assert.Equal(t, 0, len(c.runtimeStorage.peerDeploymentMap))
 
-	c.deploymentUpdateHandler(nil, nil)
-
-	assert.Equal(t, 0, len(c.runtimeStorage.peerDeploymentMap))
-
-	c.deploymentDeleteHandler(nil)
+	c.deploymentUpdateHandler(ctx, nil, nil)
 
 	assert.Equal(t, 0, len(c.runtimeStorage.peerDeploymentMap))
 }

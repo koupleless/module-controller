@@ -53,19 +53,19 @@ const (
 
 // MQTT topic patterns for base communication
 const (
-	// BaseHeartBeatTopic for heartbeat messages
+	// BaseHeartBeatTopic for heartbeat messages, broadcast mode
 	BaseHeartBeatTopic = "koupleless_%s/+/base/heart"
-	// BaseQueryBaselineTopic for baseline queries
+	// BaseQueryBaselineTopic for baseline queries, broadcast mode
 	BaseQueryBaselineTopic = "koupleless_%s/+/base/queryBaseline"
-	// BaseHealthTopic for health status
+	// BaseHealthTopic for health status, p2p mode
 	BaseHealthTopic = "koupleless_%s/%s/base/health"
-	// BaseSimpleBizTopic for simple business operations
+	// BaseSimpleBizTopic for simple business operations, p2p mode
 	BaseSimpleBizTopic = "koupleless_%s/%s/base/simpleBiz"
-	// BaseAllBizTopic for all business operations
+	// BaseAllBizTopic for all business operations, p2p mode
 	BaseAllBizTopic = "koupleless_%s/%s/base/biz"
-	// BaseBizOperationResponseTopic for business operation responses
+	// BaseBizOperationResponseTopic for business operation responses, p2p mode
 	BaseBizOperationResponseTopic = "koupleless_%s/%s/base/bizOperation"
-	// BaseBaselineResponseTopic for baseline responses
+	// BaseBaselineResponseTopic for baseline responses, p2p mode
 	BaseBaselineResponseTopic = "koupleless_%s/%s/base/baseline"
 )
 
@@ -73,6 +73,6 @@ const (
 const (
 	// LabelKeyOfTechStack specifies the technology stack
 	LabelKeyOfTechStack = "base.koupleless.io/stack"
-	// LabelKeyOfArkletPort specifies the arklet port
-	LabelKeyOfArkletPort = "base.koupleless.io/arklet-port"
+	// LabelKeyOfTunnelPort specifies the tunnel port
+	LabelKeyOfTunnelPort = "base.koupleless.io/tunnel-port"
 )

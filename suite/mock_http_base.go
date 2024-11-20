@@ -20,7 +20,7 @@ type MockHttpBase struct {
 	ID        string
 	Env       string
 	CurrState string
-	Metadata  model.Metadata
+	Metadata  model.BaseMetadata
 	port      int
 	BizInfos  map[string]ark.ArkBizInfo
 	Baseline  []ark.BizModel
@@ -29,14 +29,14 @@ type MockHttpBase struct {
 	reachable chan struct{}
 }
 
-func NewMockHttpBase(name, version, id, env string, port int) *MockHttpBase {
+func NewMockHttpBase(name, clusterName, version, env string, port int) *MockHttpBase {
 	return &MockHttpBase{
-		ID:        id,
 		Env:       env,
 		CurrState: "ACTIVATED",
-		Metadata: model.Metadata{
-			Name:    name,
-			Version: version,
+		Metadata: model.BaseMetadata{
+			Identity:    name,
+			ClusterName: clusterName,
+			Version:     version,
 		},
 		BizInfos:  make(map[string]ark.ArkBizInfo),
 		exit:      make(chan struct{}),
@@ -65,7 +65,7 @@ func (b *MockHttpBase) Start(ctx context.Context) error {
 	}
 	b.exit = make(chan struct{})
 	b.CurrState = "ACTIVATED"
-	// start a http server to mock arklet
+	// start a http server to mock base
 	mux := http.NewServeMux()
 
 	server := http.Server{
@@ -159,15 +159,12 @@ func (b *MockHttpBase) Start(ctx context.Context) error {
 }
 
 func (b *MockHttpBase) getHeartBeatMsg() []byte {
-	msg := model.HeartBeatData{
-		BaseID:        b.ID,
+	msg := model.BaseStatus{
+		BaseMetadata:  b.Metadata,
+		LocalIP:       "127.0.0.1",
+		LocalHostName: "localhost",
+		Port:          b.port,
 		State:         b.CurrState,
-		MasterBizInfo: b.Metadata,
-		NetworkInfo: model.NetworkInfo{
-			LocalIP:       "127.0.0.1",
-			LocalHostName: "localhost",
-			ArkletPort:    b.port,
-		},
 	}
 	msgBytes, _ := json.Marshal(msg)
 	return msgBytes
@@ -185,7 +182,7 @@ func (b *MockHttpBase) getHealthMsg() []byte {
 						JavaCommittedMetaspace: 1024,
 					},
 					MasterBizInfo: ark.MasterBizInfo{
-						BizName:    b.Metadata.Name,
+						BizName:    b.Metadata.Identity,
 						BizState:   b.CurrState,
 						BizVersion: b.Metadata.Version,
 					},
@@ -193,7 +190,6 @@ func (b *MockHttpBase) getHealthMsg() []byte {
 			},
 			Message: "",
 		},
-		BaseID: b.ID,
 	}
 	msgBytes, _ := json.Marshal(msg)
 	return msgBytes
@@ -213,7 +209,6 @@ func (b *MockHttpBase) getQueryAllBizMsg() []byte {
 			Data:    arkBizInfos,
 			Message: "",
 		},
-		BaseID: b.ID,
 	}
 	msgBytes, _ := json.Marshal(msg)
 	return msgBytes
@@ -250,7 +245,7 @@ func (b *MockHttpBase) processInstallBiz(msg []byte) []byte {
 		},
 		Message:         "",
 		ErrorStackTrace: "",
-		BaseID:          b.ID,
+		BaseIdentity:    b.Metadata.Identity,
 	}
 	respBytes, _ := json.Marshal(response)
 	return respBytes
@@ -275,7 +270,7 @@ func (b *MockHttpBase) processUnInstallBiz(msg []byte) []byte {
 		},
 		Message:         "",
 		ErrorStackTrace: "",
-		BaseID:          b.ID,
+		BaseIdentity:    b.Metadata.Identity,
 	}
 	respBytes, _ := json.Marshal(response)
 	return respBytes

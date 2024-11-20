@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"github.com/koupleless/arkctl/v1/service/ark"
 	"github.com/koupleless/module_controller/common/model"
+	"github.com/koupleless/virtual-kubelet/common/utils"
 	vkModel "github.com/koupleless/virtual-kubelet/model"
 	"github.com/stretchr/testify/assert"
 	corev1 "k8s.io/api/core/v1"
@@ -15,7 +16,7 @@ import (
 	"time"
 )
 
-// Test cases for GetBaseIDFromTopic function
+// Test cases for GetBaseIdentityFromTopic function
 func TestGetBaseIDFromTopic(t *testing.T) {
 	tests := []struct {
 		topic    string
@@ -31,9 +32,9 @@ func TestGetBaseIDFromTopic(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.topic, func(t *testing.T) {
-			actual := GetBaseIDFromTopic(tt.topic)
+			actual := GetBaseIdentityFromTopic(tt.topic)
 			if actual != tt.expected {
-				t.Errorf("GetBaseIDFromTopic(%q) = %q; expected %q", tt.topic, actual, tt.expected)
+				t.Errorf("GetBaseIdentityFromTopic(%q) = %q; expected %q", tt.topic, actual, tt.expected)
 			}
 		})
 	}
@@ -175,7 +176,7 @@ func TestTranslateCoreV1ContainerToBizModel(t *testing.T) {
 		{
 			container: &corev1.Container{
 				Name:  "test-container",
-				Image: "test-image",
+				Image: "test-image.jar",
 				Env: []corev1.EnvVar{
 					{Name: "BIZ_VERSION", Value: "1.0.0"},
 				},
@@ -183,13 +184,13 @@ func TestTranslateCoreV1ContainerToBizModel(t *testing.T) {
 			expected: ark.BizModel{
 				BizName:    "test-container",
 				BizVersion: "1.0.0",
-				BizUrl:     "test-image",
+				BizUrl:     "test-image.jar",
 			},
 		},
 		{
 			container: &corev1.Container{
 				Name:  "another-container",
-				Image: "another-image",
+				Image: "another-image.jar",
 				Env: []corev1.EnvVar{
 					{Name: "OTHER_ENV", Value: "foo"},
 					{Name: "BIZ_VERSION", Value: "2.0.0"},
@@ -198,13 +199,13 @@ func TestTranslateCoreV1ContainerToBizModel(t *testing.T) {
 			expected: ark.BizModel{
 				BizName:    "another-container",
 				BizVersion: "2.0.0",
-				BizUrl:     "another-image",
+				BizUrl:     "another-image.jar",
 			},
 		},
 		{
 			container: &corev1.Container{
 				Name:  "empty-version-container",
-				Image: "empty-version-image",
+				Image: "empty-version-image.jar",
 				Env: []corev1.EnvVar{
 					{Name: "OTHER_ENV", Value: "bar"},
 				},
@@ -212,19 +213,19 @@ func TestTranslateCoreV1ContainerToBizModel(t *testing.T) {
 			expected: ark.BizModel{
 				BizName:    "empty-version-container",
 				BizVersion: "",
-				BizUrl:     "empty-version-image",
+				BizUrl:     "empty-version-image.jar",
 			},
 		},
 		{
 			container: &corev1.Container{
 				Name:  "no-env-container",
-				Image: "no-env-image",
+				Image: "no-env-image.jar",
 				Env:   []corev1.EnvVar{},
 			},
 			expected: ark.BizModel{
 				BizName:    "no-env-container",
 				BizVersion: "",
-				BizUrl:     "no-env-image",
+				BizUrl:     "no-env-image.jar",
 			},
 		},
 	}
@@ -263,72 +264,73 @@ func TestGetBizIdentity(t *testing.T) {
 	}
 }
 
-// Test cases for TranslateHeartBeatDataToNodeInfo function
+// Test cases for ConvertBaseStatusToNodeInfo function
 func TestTranslateHeartBeatDataToNodeInfo(t *testing.T) {
+	env := "test"
 	tests := []struct {
-		data     model.HeartBeatData
+		data     model.BaseStatus
 		expected vkModel.NodeInfo
 	}{
 		{
-			data: model.HeartBeatData{
-				State: "ACTIVATED",
-				MasterBizInfo: model.Metadata{
-					Name:    "biz1",
-					Version: "1.0.0",
+			data: model.BaseStatus{
+				BaseMetadata: model.BaseMetadata{
+					Identity:    "base1",
+					ClusterName: "base",
+					Version:     "1.0.0",
 				},
-				NetworkInfo: model.NetworkInfo{
-					LocalIP:       "192.168.1.1",
-					LocalHostName: "host1",
-					ArkletPort:    1238,
-				},
+				LocalIP:       "192.168.1.1",
+				LocalHostName: "host1",
+				Port:          1238,
+				State:         "ACTIVATED",
 			},
 			expected: vkModel.NodeInfo{
 				Metadata: vkModel.NodeMetadata{
-					Name:    "biz1",
-					Version: "1.0.0",
-					Status:  vkModel.NodeStatusActivated,
+					Name:        utils.FormatNodeName("base1", env),
+					Version:     "1.0.0",
+					ClusterName: "base",
 				},
 				NetworkInfo: vkModel.NetworkInfo{
 					NodeIP:   "192.168.1.1",
 					HostName: "host1",
 				},
 				CustomLabels: map[string]string{
-					model.LabelKeyOfArkletPort: "1238",
+					model.LabelKeyOfTunnelPort: "1238",
 				},
+				State: vkModel.NodeStateActivated,
 			},
 		},
 		{
-			data: model.HeartBeatData{
-				State: "DEACTIVATED",
-				MasterBizInfo: model.Metadata{
-					Name:    "biz2",
-					Version: "2.0.0",
+			data: model.BaseStatus{
+				BaseMetadata: model.BaseMetadata{
+					Identity:    "base2",
+					ClusterName: "base",
+					Version:     "2.0.0",
 				},
-				NetworkInfo: model.NetworkInfo{
-					LocalIP:       "192.168.1.2",
-					LocalHostName: "host2",
-				},
+				LocalIP:       "192.168.1.2",
+				LocalHostName: "host2",
+				State:         "DEACTIVATED",
 			},
 			expected: vkModel.NodeInfo{
 				Metadata: vkModel.NodeMetadata{
-					Name:    "biz2",
-					Version: "2.0.0",
-					Status:  vkModel.NodeStatusDeactivated,
+					Name:        utils.FormatNodeName("base2", env),
+					Version:     "2.0.0",
+					ClusterName: "base",
 				},
 				NetworkInfo: vkModel.NetworkInfo{
 					NodeIP:   "192.168.1.2",
 					HostName: "host2",
 				},
 				CustomLabels: map[string]string{},
+				State:        vkModel.NodeStateDeactivated,
 			},
 		},
 	}
 
 	for _, tt := range tests {
-		t.Run(tt.data.MasterBizInfo.Name, func(t *testing.T) {
-			actual := TranslateHeartBeatDataToNodeInfo(tt.data)
+		t.Run(tt.data.BaseMetadata.Identity, func(t *testing.T) {
+			actual := ConvertBaseStatusToNodeInfo(tt.data, env)
 			if !reflect.DeepEqual(actual, tt.expected) {
-				t.Errorf("TranslateHeartBeatDataToNodeInfo() = %+v; expected %+v", actual, tt.expected)
+				t.Errorf("ConvertBaseStatusToNodeInfo() = %+v; expected %+v", actual, tt.expected)
 			}
 		})
 	}
@@ -534,29 +536,31 @@ func TestTranslateHealthDataToNodeStatus(t *testing.T) {
 	}
 
 	for _, tc := range testCases {
-		result := TranslateHealthDataToNodeStatus(tc.input)
+		result := ConvertHealthDataToNodeStatus(tc.input)
 		if result.Resources[corev1.ResourceMemory].Capacity != tc.expected.Resources[corev1.ResourceMemory].Capacity {
-			t.Errorf("TranslateHealthDataToNodeStatus(%v) = %v; want %v", tc.input, result, tc.expected)
+			t.Errorf("ConvertHealthDataToNodeStatus(%v) = %v; want %v", tc.input, result, tc.expected)
 		}
 		if result.Resources[corev1.ResourceMemory].Allocatable != tc.expected.Resources[corev1.ResourceMemory].Allocatable {
-			t.Errorf("TranslateHealthDataToNodeStatus(%v) = %v; want %v", tc.input, result, tc.expected)
+			t.Errorf("ConvertHealthDataToNodeStatus(%v) = %v; want %v", tc.input, result, tc.expected)
 		}
 	}
 }
 
 func TestTranslateHeartBeatDataToBaselineQuery(t *testing.T) {
 	testCases := []struct {
-		input    model.Metadata
+		input    model.BaseMetadata
 		expected model.QueryBaselineRequest
 	}{
 		{
-			input: model.Metadata{
-				Name:    "test",
-				Version: "1.0.0",
+			input: model.BaseMetadata{
+				Identity:    "base1",
+				ClusterName: "test",
+				Version:     "1.0.0",
 			},
 			expected: model.QueryBaselineRequest{
-				Name:    "test",
-				Version: "1.0.0",
+				Identity:    "base1",
+				ClusterName: "test",
+				Version:     "1.0.0",
 				CustomLabels: map[string]string{
 					model.LabelKeyOfTechStack: "java",
 				},
@@ -565,9 +569,9 @@ func TestTranslateHeartBeatDataToBaselineQuery(t *testing.T) {
 	}
 
 	for _, tc := range testCases {
-		result := TranslateHeartBeatDataToBaselineQuery(tc.input)
-		if result.Name != tc.expected.Name || result.Version != tc.expected.Version || len(result.CustomLabels) != len(tc.expected.CustomLabels) {
-			t.Errorf("TranslateHeartBeatDataToBaselineQuery(%s) = %v; want %v", tc.input, result, tc.expected)
+		result := ConvertBaseMetadataToBaselineQuery(tc.input)
+		if result.ClusterName != tc.expected.ClusterName || result.Version != tc.expected.Version || len(result.CustomLabels) != len(tc.expected.CustomLabels) {
+			t.Errorf("ConvertBaseMetadataToBaselineQuery(%s) = %v; want %v", tc.input, result, tc.expected)
 		}
 	}
 }
@@ -596,7 +600,7 @@ func TestTranslateSimpleBizDataToArkBizInfos(t *testing.T) {
 
 	for _, tc := range testCases {
 		result := TranslateSimpleBizDataToBizInfos(tc.input)
-		assert.Equal(t, len(result), len(tc.expected), fmt.Errorf("TranslateHeartBeatDataToBaselineQuery(%s) = %v; want %v", tc.input, result, tc.expected))
+		assert.Equal(t, len(result), len(tc.expected), fmt.Errorf("ConvertBaseMetadataToBaselineQuery(%s) = %v; want %v", tc.input, result, tc.expected))
 	}
 }
 
@@ -622,14 +626,14 @@ func TestGetLatestState_ChangeTimeLenLt3(t *testing.T) {
 }
 
 func TestExtractNetworkInfoFromNodeInfoData(t *testing.T) {
-	data := ExtractNetworkInfoFromNodeInfoData(vkModel.NodeInfo{
+	data := ConvertBaseStatusFromNodeInfo(vkModel.NodeInfo{
 		CustomLabels: map[string]string{
-			model.LabelKeyOfArkletPort: ";",
+			model.LabelKeyOfTunnelPort: ";",
 		},
 	})
-	assert.Equal(t, data.ArkletPort, 1238)
+	assert.Equal(t, data.Port, 1238)
 }
 
 func TestOnBaseUnreachable(t *testing.T) {
-	OnBaseUnreachable(context.Background(), vkModel.UnreachableNodeInfo{}, "test", fake.NewFakeClient())
+	OnBaseUnreachable(context.Background(), "test-node-name", fake.NewFakeClient())
 }

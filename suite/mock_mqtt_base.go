@@ -16,26 +16,26 @@ import (
 
 type MockMQTTBase struct {
 	sync.Mutex
-	ID        string
-	Env       string
-	CurrState string
-	Metadata  model.Metadata
-	BizInfos  map[string]ark.ArkBizInfo
-	Baseline  []ark.BizModel
-	client    *mqtt.Client
+	Name         string // node name or id
+	Env          string
+	CurrState    string
+	BaseMetadata model.BaseMetadata
+	BizInfos     map[string]ark.ArkBizInfo
+	Baseline     []ark.BizModel
+	client       *mqtt.Client
 
 	exit      chan struct{}
 	reachable chan struct{}
 }
 
-func NewMockMqttBase(name, version, id, env string) *MockMQTTBase {
+func NewMockMqttBase(baseName, clusterName, version, env string) *MockMQTTBase {
 	return &MockMQTTBase{
-		ID:        id,
+		Name:      baseName,
 		Env:       env,
 		CurrState: "ACTIVATED",
-		Metadata: model.Metadata{
-			Name:    name,
-			Version: version,
+		BaseMetadata: model.BaseMetadata{
+			ClusterName: clusterName,
+			Version:     version,
 		},
 		BizInfos:  make(map[string]ark.ArkBizInfo),
 		exit:      make(chan struct{}),
@@ -67,12 +67,12 @@ func (b *MockMQTTBase) Start(ctx context.Context) error {
 	b.client, err = mqtt.NewMqttClient(&mqtt.ClientConfig{
 		Broker:   "localhost",
 		Port:     1883,
-		ClientID: b.ID,
+		ClientID: b.BaseMetadata.Identity,
 		Username: "test",
 		Password: "",
 		OnConnectHandler: func(client paho.Client) {
-			client.Subscribe(fmt.Sprintf("koupleless_%s/%s/+", b.Env, b.ID), 1, b.processCommand)
-			client.Subscribe(fmt.Sprintf("koupleless_%s/%s/base/baseline", b.Env, b.ID), 1, b.processBaseline)
+			client.Subscribe(fmt.Sprintf("koupleless_%s/%s/+", b.Env, b.BaseMetadata.Identity), 1, b.processCommand)
+			client.Subscribe(fmt.Sprintf("koupleless_%s/%s/base/baseline", b.Env, b.BaseMetadata.Identity), 1, b.processBaseline)
 		},
 	})
 	if err != nil {
@@ -83,7 +83,7 @@ func (b *MockMQTTBase) Start(ctx context.Context) error {
 
 	go func() {
 		// send heart beat message
-		b.client.Pub(fmt.Sprintf("koupleless_%s/%s/base/heart", b.Env, b.ID), 1, b.getHeartBeatMsg())
+		b.client.Pub(fmt.Sprintf("koupleless_%s/%s/base/heart", b.Env, b.BaseMetadata.Identity), 1, b.getHeartBeatMsg())
 	}()
 
 	select {
@@ -98,19 +98,17 @@ func (b *MockMQTTBase) Start(ctx context.Context) error {
 func (b *MockMQTTBase) SetCurrState(state string) {
 	b.CurrState = state
 	// send heart beat message
-	b.client.Pub(fmt.Sprintf("koupleless_%s/%s/base/heart", b.Env, b.ID), 1, b.getHeartBeatMsg())
+	b.client.Pub(fmt.Sprintf("koupleless_%s/%s/base/heart", b.Env, b.BaseMetadata.Identity), 1, b.getHeartBeatMsg())
 }
 
 func (b *MockMQTTBase) getHeartBeatMsg() []byte {
-	msg := model.ArkMqttMsg[model.HeartBeatData]{
+	msg := model.ArkMqttMsg[model.BaseStatus]{
 		PublishTimestamp: time.Now().UnixMilli(),
-		Data: model.HeartBeatData{
+		Data: model.BaseStatus{
+			BaseMetadata:  b.BaseMetadata,
+			LocalIP:       "127.0.0.1",
+			LocalHostName: "localhost",
 			State:         b.CurrState,
-			MasterBizInfo: b.Metadata,
-			NetworkInfo: model.NetworkInfo{
-				LocalIP:       "127.0.0.1",
-				LocalHostName: "localhost",
-			},
 		},
 	}
 	msgBytes, _ := json.Marshal(msg)
@@ -131,9 +129,9 @@ func (b *MockMQTTBase) getHealthMsg() []byte {
 							JavaCommittedMetaspace: 1024,
 						},
 						MasterBizInfo: ark.MasterBizInfo{
-							BizName:    b.Metadata.Name,
+							BizName:    b.BaseMetadata.Identity,
 							BizState:   b.CurrState,
-							BizVersion: b.Metadata.Version,
+							BizVersion: b.BaseMetadata.Version,
 						},
 					},
 				},
@@ -205,7 +203,7 @@ func (b *MockMQTTBase) processBaseline(_ paho.Client, msg paho.Message) {
 }
 
 func (b *MockMQTTBase) processHealth() {
-	b.client.Pub(fmt.Sprintf("koupleless_%s/%s/base/health", b.Env, b.ID), 1, b.getHealthMsg())
+	b.client.Pub(fmt.Sprintf("koupleless_%s/%s/base/health", b.Env, b.BaseMetadata.Identity), 1, b.getHealthMsg())
 }
 
 func (b *MockMQTTBase) processInstallBiz(msg []byte) {
@@ -250,34 +248,34 @@ func (b *MockMQTTBase) processUnInstallBiz(msg []byte) {
 		},
 	}
 	respBytes, _ := json.Marshal(resp)
-	b.client.Pub(fmt.Sprintf(model.BaseBizOperationResponseTopic, b.Env, b.ID), 1, respBytes)
+	b.client.Pub(fmt.Sprintf(model.BaseBizOperationResponseTopic, b.Env, b.BaseMetadata.Identity), 1, respBytes)
 }
 
 func (b *MockMQTTBase) SendInvalidMessage() {
-	b.client.Pub(fmt.Sprintf("koupleless_%s/%s/base/health", b.Env, b.ID), 1, []byte(""))
-	b.client.Pub(fmt.Sprintf("koupleless_%s/%s/base/biz", b.Env, b.ID), 1, []byte(""))
-	b.client.Pub(fmt.Sprintf("koupleless_%s/%s/base/heart", b.Env, b.ID), 1, []byte(""))
-	b.client.Pub(fmt.Sprintf("koupleless_%s/%s/base/queryBaseline", b.Env, b.ID), 1, []byte(""))
+	b.client.Pub(fmt.Sprintf("koupleless_%s/%s/base/health", b.Env, b.BaseMetadata.Identity), 1, []byte(""))
+	b.client.Pub(fmt.Sprintf("koupleless_%s/%s/base/biz", b.Env, b.BaseMetadata.Identity), 1, []byte(""))
+	b.client.Pub(fmt.Sprintf("koupleless_%s/%s/base/heart", b.Env, b.BaseMetadata.Identity), 1, []byte(""))
+	b.client.Pub(fmt.Sprintf("koupleless_%s/%s/base/queryBaseline", b.Env, b.BaseMetadata.Identity), 1, []byte(""))
 }
 
 func (b *MockMQTTBase) SendTimeoutMessage() {
-	b.client.Pub(fmt.Sprintf("koupleless_%s/%s/base/health", b.Env, b.ID), 1, []byte("{\"publishTimestamp\":0}"))
-	b.client.Pub(fmt.Sprintf("koupleless_%s/%s/base/biz", b.Env, b.ID), 1, []byte("{\"publishTimestamp\":0}"))
-	b.client.Pub(fmt.Sprintf("koupleless_%s/%s/base/heart", b.Env, b.ID), 1, []byte("{\"publishTimestamp\":0}"))
-	b.client.Pub(fmt.Sprintf("koupleless_%s/%s/base/queryBaseline", b.Env, b.ID), 1, []byte("{\"publishTimestamp\":0}"))
+	b.client.Pub(fmt.Sprintf("koupleless_%s/%s/base/health", b.Env, b.BaseMetadata.Identity), 1, []byte("{\"publishTimestamp\":0}"))
+	b.client.Pub(fmt.Sprintf("koupleless_%s/%s/base/biz", b.Env, b.BaseMetadata.Identity), 1, []byte("{\"publishTimestamp\":0}"))
+	b.client.Pub(fmt.Sprintf("koupleless_%s/%s/base/heart", b.Env, b.BaseMetadata.Identity), 1, []byte("{\"publishTimestamp\":0}"))
+	b.client.Pub(fmt.Sprintf("koupleless_%s/%s/base/queryBaseline", b.Env, b.BaseMetadata.Identity), 1, []byte("{\"publishTimestamp\":0}"))
 }
 
 func (b *MockMQTTBase) SendFailedMessage() {
-	b.client.Pub(fmt.Sprintf("koupleless_%s/%s/base/health", b.Env, b.ID), 1, []byte(fmt.Sprintf("{\"publishTimestamp\":%d, \"data\" : {\"code\":\"\"}}", time.Now().UnixMilli())))
-	b.client.Pub(fmt.Sprintf("koupleless_%s/%s/base/biz", b.Env, b.ID), 1, []byte(fmt.Sprintf("{\"publishTimestamp\":%d, \"data\" : {\"code\":\"\"}}", time.Now().UnixMilli())))
+	b.client.Pub(fmt.Sprintf("koupleless_%s/%s/base/health", b.Env, b.BaseMetadata.Identity), 1, []byte(fmt.Sprintf("{\"publishTimestamp\":%d, \"data\" : {\"code\":\"\"}}", time.Now().UnixMilli())))
+	b.client.Pub(fmt.Sprintf("koupleless_%s/%s/base/biz", b.Env, b.BaseMetadata.Identity), 1, []byte(fmt.Sprintf("{\"publishTimestamp\":%d, \"data\" : {\"code\":\"\"}}", time.Now().UnixMilli())))
 }
 
 func (b *MockMQTTBase) QueryBaseline() {
-	queryBaselineBytes, _ := json.Marshal(model.ArkMqttMsg[model.Metadata]{
+	queryBaselineBytes, _ := json.Marshal(model.ArkMqttMsg[model.BaseMetadata]{
 		PublishTimestamp: time.Now().UnixMilli(),
-		Data:             b.Metadata,
+		Data:             b.BaseMetadata,
 	})
-	b.client.Pub(fmt.Sprintf("koupleless_%s/%s/base/queryBaseline", b.Env, b.ID), 1, queryBaselineBytes)
+	b.client.Pub(fmt.Sprintf("koupleless_%s/%s/base/queryBaseline", b.Env, b.BaseMetadata.Identity), 1, queryBaselineBytes)
 }
 
 func (b *MockMQTTBase) SetBizState(bizIdentity, state, reason, message string) {
@@ -312,7 +310,7 @@ func (b *MockMQTTBase) SetBizState(bizIdentity, state, reason, message string) {
 			},
 		}
 		respBytes, _ := json.Marshal(resp)
-		b.client.Pub(fmt.Sprintf(model.BaseBizOperationResponseTopic, b.Env, b.ID), 1, respBytes)
+		b.client.Pub(fmt.Sprintf(model.BaseBizOperationResponseTopic, b.Env, b.BaseMetadata.Identity), 1, respBytes)
 	}
 	// send simple all biz data
 	arkBizInfos := make(model.ArkSimpleAllBizInfoData, 0)
@@ -334,11 +332,11 @@ func (b *MockMQTTBase) SetBizState(bizIdentity, state, reason, message string) {
 		Data:             arkBizInfos,
 	}
 	msgBytes, _ := json.Marshal(msg)
-	b.client.Pub(fmt.Sprintf("koupleless_%s/%s/base/simpleBiz", b.Env, b.ID), 1, msgBytes)
+	b.client.Pub(fmt.Sprintf("koupleless_%s/%s/base/simpleBiz", b.Env, b.BaseMetadata.Identity), 1, msgBytes)
 }
 
 func (b *MockMQTTBase) processQueryAllBiz() {
-	b.client.Pub(fmt.Sprintf("koupleless_%s/%s/base/biz", b.Env, b.ID), 1, b.getQueryAllBizMsg())
+	b.client.Pub(fmt.Sprintf("koupleless_%s/%s/base/biz", b.Env, b.BaseMetadata.Identity), 1, b.getQueryAllBizMsg())
 }
 
 func getBizIdentity(bizModel ark.BizModel) string {

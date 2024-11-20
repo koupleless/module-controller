@@ -71,12 +71,12 @@ func (h *Service) UninstallBiz(ctx context.Context, req UninstallBizRequest, bas
 	return response, nil
 }
 
-func (h *Service) QueryAllBiz(ctx context.Context, baseIP string, arkletPort int) (response QueryAllBizResponse, err error) {
+func (h *Service) QueryAllBiz(ctx context.Context, baseIP string, port int) (response QueryAllBizResponse, err error) {
 
 	resp, err := h.client.R().
 		SetContext(ctx).
 		SetBody(`{}`).
-		Post(fmt.Sprintf("http://%s:%d/queryAllBiz", baseIP, arkletPort))
+		Post(fmt.Sprintf("http://%s:%d/queryAllBiz", baseIP, port))
 
 	if err != nil {
 		log.G(ctx).WithError(err).Errorf("queryAllBiz request failed")
