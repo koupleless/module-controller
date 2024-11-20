@@ -9,6 +9,8 @@ import (
 	"github.com/koupleless/module_controller/common/model"
 	"github.com/koupleless/module_controller/module_tunnels/koupleless_http_tunnel/ark_service"
 	"github.com/koupleless/module_controller/module_tunnels/koupleless_mqtt_tunnel/mqtt"
+	"github.com/koupleless/virtual-kubelet/common/log"
+	"github.com/koupleless/virtual-kubelet/common/utils"
 	"strings"
 	"sync"
 	"time"
@@ -79,6 +81,12 @@ func (b *MockMQTTBase) Start(ctx context.Context, clientID string) error {
 	}
 
 	b.client.Connect()
+
+	// Start a new goroutine to upload node heart beat data every 10 seconds
+	go utils.TimedTaskWithInterval(ctx, time.Second*10, func(ctx context.Context) {
+		log.G(ctx).Info("upload node heart beat data from node ", b.BaseMetadata.Identity)
+		b.client.Pub(fmt.Sprintf("koupleless_%s/%s/base/heart", b.Env, b.BaseMetadata.Identity), 1, b.getHeartBeatMsg())
+	})
 
 	go func() {
 		// send heart beat message

@@ -6,7 +6,6 @@ import (
 	model2 "github.com/koupleless/module_controller/common/model"
 	"github.com/koupleless/module_controller/controller/module_deployment_controller"
 	"github.com/koupleless/module_controller/module_tunnels/koupleless_http_tunnel"
-	"github.com/koupleless/module_controller/module_tunnels/koupleless_mqtt_tunnel"
 	"github.com/koupleless/virtual-kubelet/common/log"
 	logruslogger "github.com/koupleless/virtual-kubelet/common/log/logrus"
 	"github.com/koupleless/virtual-kubelet/model"
@@ -14,9 +13,6 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/sirupsen/logrus"
-	"github.com/wind-c/comqtt/v2/mqtt"
-	"github.com/wind-c/comqtt/v2/mqtt/hooks/auth"
-	"github.com/wind-c/comqtt/v2/mqtt/listeners"
 	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes/scheme"
@@ -28,6 +24,7 @@ import (
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
 	"sigs.k8s.io/controller-runtime/pkg/log/zap"
 	"testing"
+	"time"
 )
 
 // These tests use Ginkgo (BDD-style Go testing framework). Refer to
@@ -36,9 +33,8 @@ import (
 var cfg *rest.Config
 var testEnv *envtest.Environment
 var k8sClient client.Client
-var mqttTunnel koupleless_mqtt_tunnel.MqttTunnel
 var httpTunnel koupleless_http_tunnel.HttpTunnel
-var mqttServer *mqtt.Server
+var ctx, cancel = context.WithCancel(context.Background())
 
 const (
 	clientID = "suite-test"
@@ -67,27 +63,7 @@ var _ = BeforeSuite(func() {
 	Expect(err).NotTo(HaveOccurred())
 	Expect(cfg).NotTo(BeNil())
 
-	// start embedded mqtt broker
-	// Create the new MQTT Server.
-	mqttServer = mqtt.New(nil)
-
 	// Allow all connections.
-	_ = mqttServer.AddHook(new(auth.AllowHook), nil)
-
-	// Create a TCP listener on a standard port.
-	tcp := listeners.NewTCP("t1", ":1883", nil)
-	err = mqttServer.AddListener(tcp)
-	Expect(err).NotTo(HaveOccurred())
-
-	ctx := context.Background()
-	go func() {
-		err := mqttServer.Serve()
-		if err != nil {
-			log.G(ctx).Error("failed to start mqtt server")
-			panic(err)
-		}
-	}()
-
 	err = scheme.AddToScheme(scheme.Scheme)
 	Expect(err).NotTo(HaveOccurred())
 
@@ -128,6 +104,7 @@ var _ = BeforeSuite(func() {
 
 	go func() {
 		err = k8sManager.Start(ctx)
+		log.G(ctx).WithError(err).Error("k8sManager.Start")
 		Expect(err).ToNot(HaveOccurred())
 	}()
 
@@ -137,7 +114,8 @@ var _ = BeforeSuite(func() {
 var _ = AfterSuite(func() {
 	By("tearing down the suite environment")
 	testEnv.Stop()
-	mqttServer.Close()
+	time.Sleep(15 * time.Second)
+	log.G(ctx).Info("suite for http stopped!")
 })
 
 func prepareModulePod(name, namespace, nodeName string) v1.Pod {
