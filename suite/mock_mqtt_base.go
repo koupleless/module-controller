@@ -16,7 +16,6 @@ import (
 
 type MockMQTTBase struct {
 	sync.Mutex
-	Name         string // node name or id
 	Env          string
 	CurrState    string
 	BaseMetadata model.BaseMetadata
@@ -30,10 +29,10 @@ type MockMQTTBase struct {
 
 func NewMockMqttBase(baseName, clusterName, version, env string) *MockMQTTBase {
 	return &MockMQTTBase{
-		Name:      baseName,
 		Env:       env,
 		CurrState: "ACTIVATED",
 		BaseMetadata: model.BaseMetadata{
+			Identity:    baseName,
 			ClusterName: clusterName,
 			Version:     version,
 		},
@@ -55,7 +54,7 @@ func (b *MockMQTTBase) Unreachable() {
 	b.reachable = make(chan struct{})
 }
 
-func (b *MockMQTTBase) Start(ctx context.Context) error {
+func (b *MockMQTTBase) Start(ctx context.Context, clientID string) error {
 	select {
 	case <-b.reachable:
 	default:
@@ -67,7 +66,7 @@ func (b *MockMQTTBase) Start(ctx context.Context) error {
 	b.client, err = mqtt.NewMqttClient(&mqtt.ClientConfig{
 		Broker:   "localhost",
 		Port:     1883,
-		ClientID: b.BaseMetadata.Identity,
+		ClientID: clientID,
 		Username: "test",
 		Password: "",
 		OnConnectHandler: func(client paho.Client) {

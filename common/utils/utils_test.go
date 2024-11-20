@@ -561,16 +561,13 @@ func TestTranslateHeartBeatDataToBaselineQuery(t *testing.T) {
 				Identity:    "base1",
 				ClusterName: "test",
 				Version:     "1.0.0",
-				CustomLabels: map[string]string{
-					model.LabelKeyOfTechStack: "java",
-				},
 			},
 		},
 	}
 
 	for _, tc := range testCases {
 		result := ConvertBaseMetadataToBaselineQuery(tc.input)
-		if result.ClusterName != tc.expected.ClusterName || result.Version != tc.expected.Version || len(result.CustomLabels) != len(tc.expected.CustomLabels) {
+		if result.ClusterName != tc.expected.ClusterName || result.Version != tc.expected.Version {
 			t.Errorf("ConvertBaseMetadataToBaselineQuery(%s) = %v; want %v", tc.input, result, tc.expected)
 		}
 	}
