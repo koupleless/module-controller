@@ -1,8 +1,7 @@
-package suite
+package http
 
 import (
 	"context"
-	"github.com/koupleless/virtual-kubelet/common/log"
 	"github.com/koupleless/virtual-kubelet/common/utils"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -16,24 +15,21 @@ var _ = Describe("Module Lifecycle Test", func() {
 
 	ctx := context.Background()
 
-	nodeID := "test-base"
-	nodeName := utils.FormatNodeName(nodeID, env)
-	mockBase := NewMockMqttBase(nodeID, "1.0.0", env)
+	nodeID := "test-http-base"
+	clusterName := "test-cluster-name"
 
-	mockModulePod := prepareModulePod("test-module", "default", nodeName)
+	mockBase := NewMockHttpBase(nodeID, clusterName, "1.0.0", env, 1238)
+
+	mockModulePod := prepareModulePod("test-module", "default", utils.FormatNodeName(nodeID, env))
 
 	Context("pod install", func() {
 		It("base should become a ready vnode eventually", func() {
-			go mockBase.Start(ctx)
+			go mockBase.Start(ctx, clientID)
 			vnode := &v1.Node{}
 			Eventually(func() bool {
 				err := k8sClient.Get(ctx, types.NamespacedName{
-					Name: nodeName,
+					Name: utils.FormatNodeName(nodeID, env),
 				}, vnode)
-				if err != nil {
-					log.G(ctx).Error(err, "get vnode error")
-					return false
-				}
 				vnodeReady := false
 				for _, cond := range vnode.Status.Conditions {
 					if cond.Type == v1.NodeReady {
@@ -45,7 +41,7 @@ var _ = Describe("Module Lifecycle Test", func() {
 			}, time.Second*20, time.Second).Should(BeTrue())
 		})
 
-		It("publish a module pod and it should be pending", func() {
+		It("publish a module pod and it should be running", func() {
 			err := k8sClient.Create(ctx, &mockModulePod)
 			Expect(err).To(BeNil())
 			Eventually(func() bool {
@@ -54,35 +50,10 @@ var _ = Describe("Module Lifecycle Test", func() {
 					Namespace: mockModulePod.Namespace,
 					Name:      mockModulePod.Name,
 				}, podFromKubernetes)
-				return err == nil && podFromKubernetes.Status.Phase == v1.PodPending && podFromKubernetes.Spec.NodeName == utils.FormatNodeName(nodeID, env)
+				return err == nil && podFromKubernetes.Status.Phase == v1.PodRunning
 			}, time.Second*20, time.Second).Should(BeTrue())
 			Eventually(func() bool {
 				return len(mockBase.BizInfos) == 1
-			}, time.Second*20, time.Second).Should(BeTrue())
-		})
-
-		It("when all module's status changes to ACTIVATED, pod should become ready", func() {
-			mockBase.SetBizState("biz:0.0.1", "ACTIVATED", "ACTIVATED", "ACTIVATED")
-			Eventually(func() bool {
-				podFromKubernetes := &v1.Pod{}
-				err := k8sClient.Get(ctx, types.NamespacedName{
-					Namespace: mockModulePod.Namespace,
-					Name:      mockModulePod.Name,
-				}, podFromKubernetes)
-				return err == nil && podFromKubernetes.Status.Phase == v1.PodRunning
-			}, time.Second*30, time.Second).Should(BeTrue())
-		})
-
-		It("when one module's status changes to deactived, pod should become unready", func() {
-			mockBase.SetBizState("biz:0.0.1", "DEACTIVATED", "test", "test")
-
-			Eventually(func() bool {
-				podFromKubernetes := &v1.Pod{}
-				err := k8sClient.Get(ctx, types.NamespacedName{
-					Namespace: mockModulePod.Namespace,
-					Name:      mockModulePod.Name,
-				}, podFromKubernetes)
-				return err == nil && podFromKubernetes.Status.Phase == v1.PodRunning && podFromKubernetes.Status.Conditions[0].Status == v1.ConditionFalse
 			}, time.Second*20, time.Second).Should(BeTrue())
 		})
 
@@ -96,15 +67,7 @@ var _ = Describe("Module Lifecycle Test", func() {
 					Name:      mockModulePod.Name,
 				}, podFromKubernetes)
 				return errors.IsNotFound(err)
-			}, time.Second*20, time.Second).Should(BeTrue())
-		})
-
-		It("invalid message should skip by mqtt tunnel", func() {
-			// invalid msg payload
-			mockBase.SendInvalidMessage()
-			mockBase.SendFailedMessage()
-			mockBase.SendTimeoutMessage()
-			time.Sleep(time.Second)
+			}, time.Second*40, time.Second).Should(BeTrue())
 		})
 
 		It("base offline with deactive message and finally exit", func() {

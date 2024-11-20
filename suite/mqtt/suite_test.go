@@ -1,16 +1,14 @@
-package suite
+package mqtt
 
 import (
 	"context"
 	"fmt"
 	model2 "github.com/koupleless/module_controller/common/model"
 	"github.com/koupleless/module_controller/controller/module_deployment_controller"
-	"github.com/koupleless/module_controller/module_tunnels/koupleless_http_tunnel"
 	"github.com/koupleless/module_controller/module_tunnels/koupleless_mqtt_tunnel"
 	"github.com/koupleless/virtual-kubelet/common/log"
 	logruslogger "github.com/koupleless/virtual-kubelet/common/log/logrus"
 	"github.com/koupleless/virtual-kubelet/model"
-	"github.com/koupleless/virtual-kubelet/tunnel"
 	"github.com/koupleless/virtual-kubelet/vnode_controller"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -38,7 +36,6 @@ var cfg *rest.Config
 var testEnv *envtest.Environment
 var k8sClient client.Client
 var mqttTunnel koupleless_mqtt_tunnel.MqttTunnel
-var httpTunnel koupleless_http_tunnel.HttpTunnel
 var mqttServer *mqtt.Server
 
 const (
@@ -111,20 +108,13 @@ var _ = BeforeSuite(func() {
 	Expect(err).ToNot(HaveOccurred())
 
 	mqttTunnel = koupleless_mqtt_tunnel.NewMqttTunnel(env, k8sManager.GetClient(), moduleDeploymentController)
-	httpTunnel = koupleless_http_tunnel.NewHttpTunnel(env, k8sManager.GetClient(), moduleDeploymentController, 7777)
 
-	tunnels := []tunnel.Tunnel{
-		&mqttTunnel,
-		&httpTunnel,
-	}
-	for _, t := range tunnels {
-		err = t.Start(ctx, clientID, env)
-		if err != nil {
-			log.G(ctx).WithError(err).Error("failed to start tunnel", t.Key())
-			panic(fmt.Sprintf("failed to start tunnel %s", t.Key()))
-		} else {
-			log.G(ctx).Info("Tunnel started: ", t.Key())
-		}
+	err = mqttTunnel.Start(ctx, clientID, env)
+	if err != nil {
+		log.G(ctx).WithError(err).Error("failed to start tunnel", mqttTunnel.Key())
+		panic(fmt.Sprintf("failed to start tunnel %s", mqttTunnel.Key()))
+	} else {
+		log.G(ctx).Info("Tunnel started: ", mqttTunnel.Key())
 	}
 
 	vnodeController, err := vnode_controller.NewVNodeController(&model.BuildVNodeControllerConfig{
@@ -132,7 +122,7 @@ var _ = BeforeSuite(func() {
 		Env:            env,
 		VPodIdentity:   model2.ComponentModule,
 		VNodeWorkerNum: 4,
-	}, tunnels[0])
+	}, &mqttTunnel)
 	Expect(err).ToNot(HaveOccurred())
 
 	err = vnodeController.SetupWithManager(ctx, k8sManager)

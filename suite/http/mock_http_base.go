@@ -1,4 +1,4 @@
-package suite
+package http
 
 import (
 	"bytes"
@@ -57,7 +57,7 @@ func (b *MockHttpBase) Unreachable() {
 	b.reachable = make(chan struct{})
 }
 
-func (b *MockHttpBase) Start(ctx context.Context) error {
+func (b *MockHttpBase) Start(ctx context.Context, clientID string) error {
 	select {
 	case <-b.reachable:
 	default:
@@ -274,4 +274,8 @@ func (b *MockHttpBase) processUnInstallBiz(msg []byte) []byte {
 	}
 	respBytes, _ := json.Marshal(response)
 	return respBytes
+}
+
+func getBizIdentity(bizModel ark.BizModel) string {
+	return fmt.Sprintf("%s:%s", bizModel.BizName, bizModel.BizVersion)
 }
