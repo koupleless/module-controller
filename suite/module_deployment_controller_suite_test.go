@@ -18,8 +18,10 @@ var _ = Describe("Module Deployment Controller Test", func() {
 
 	ctx := context.Background()
 
-	mockBase := NewMockMqttBase("test-base", "1.0.0", "test-base", env)
-	mockBase2 := NewMockMqttBase("test-base", "1.0.0", "test-base-2", env)
+	clusterName := "test-cluster-name"
+
+	mockBase := NewMockMqttBase("test-base", clusterName, "1.0.0", env)
+	mockBase2 := NewMockMqttBase("test-base-2", clusterName, "1.0.0", env)
 
 	deployment1 := appsv1.Deployment{
 		ObjectMeta: metav1.ObjectMeta{
@@ -50,7 +52,7 @@ var _ = Describe("Module Deployment Controller Test", func() {
 					Containers: []v1.Container{
 						{
 							Name:  "test-biz",
-							Image: "test-biz",
+							Image: "test-biz.jar",
 							Env: []v1.EnvVar{
 								{
 									Name:  "BIZ_VERSION",
@@ -60,9 +62,9 @@ var _ = Describe("Module Deployment Controller Test", func() {
 						},
 					},
 					NodeSelector: map[string]string{
-						model.LabelKeyOfTechStack:      "java",
-						vkModel.LabelKeyOfVNodeName:    "test-base",
-						vkModel.LabelKeyOfVNodeVersion: "1.0.0",
+						model.LabelKeyOfTechStack:          "java",
+						vkModel.LabelKeyOfVNodeVersion:     "1.0.0",
+						vkModel.LabelKeyOfVNodeClusterName: clusterName,
 					},
 					Tolerations: []v1.Toleration{
 						{
@@ -112,7 +114,7 @@ var _ = Describe("Module Deployment Controller Test", func() {
 					Containers: []v1.Container{
 						{
 							Name:  "test-biz-2",
-							Image: "test-biz-2",
+							Image: "test-biz-2.jar",
 							Env: []v1.EnvVar{
 								{
 									Name:  "BIZ_VERSION",
@@ -122,9 +124,9 @@ var _ = Describe("Module Deployment Controller Test", func() {
 						},
 					},
 					NodeSelector: map[string]string{
-						model.LabelKeyOfTechStack:      "java",
-						vkModel.LabelKeyOfVNodeName:    "test-base-2",
-						vkModel.LabelKeyOfVNodeVersion: "1.0.0",
+						model.LabelKeyOfTechStack:          "java",
+						vkModel.LabelKeyOfVNodeVersion:     "1.0.0",
+						vkModel.LabelKeyOfVNodeClusterName: clusterName,
 					},
 					Tolerations: []v1.Toleration{
 						{

@@ -16,6 +16,9 @@ package main
 
 import (
 	"context"
+	"errors"
+	"fmt"
+	"github.com/koupleless/virtual-kubelet/vnode_controller"
 	"os"
 	"os/signal"
 	"sigs.k8s.io/controller-runtime/pkg/healthz"
@@ -25,7 +28,6 @@ import (
 	"github.com/google/uuid"
 	"github.com/koupleless/module_controller/common/model"
 	"github.com/koupleless/module_controller/controller/module_deployment_controller"
-	"github.com/koupleless/module_controller/module_tunnels"
 	"github.com/koupleless/module_controller/module_tunnels/koupleless_http_tunnel"
 	"github.com/koupleless/module_controller/module_tunnels/koupleless_mqtt_tunnel"
 	"github.com/koupleless/module_controller/report_server"
@@ -35,7 +37,6 @@ import (
 	"github.com/koupleless/virtual-kubelet/common/trace/opencensus"
 	"github.com/koupleless/virtual-kubelet/common/tracker"
 	"github.com/koupleless/virtual-kubelet/common/utils"
-	"github.com/koupleless/virtual-kubelet/controller/vnode_controller"
 	vkModel "github.com/koupleless/virtual-kubelet/model"
 	"github.com/koupleless/virtual-kubelet/tunnel"
 	"github.com/sirupsen/logrus"
@@ -113,39 +114,6 @@ func main() {
 
 	tracker.SetTracker(&tracker.DefaultTracker{})
 
-	// Initialize tunnels based on configuration
-	tunnels := make([]tunnel.Tunnel, 0)
-	moduleTunnels := make([]module_tunnels.ModuleTunnel, 0)
-
-	mqttTunnelEnable := utils.GetEnv("ENABLE_MQTT_TUNNEL", "false")
-	if mqttTunnelEnable == "true" {
-		mqttTl := &koupleless_mqtt_tunnel.MqttTunnel{
-			Cache:  mgr.GetCache(),
-			Client: mgr.GetClient(),
-		}
-
-		tunnels = append(tunnels, mqttTl)
-		moduleTunnels = append(moduleTunnels, mqttTl)
-	}
-
-	httpTunnelEnable := utils.GetEnv("ENABLE_HTTP_TUNNEL", "false")
-	if httpTunnelEnable == "true" {
-		httpTunnelListenPort, err := strconv.Atoi(utils.GetEnv("HTTP_TUNNEL_LISTEN_PORT", "7777"))
-
-		if err != nil {
-			log.G(ctx).WithError(err).Error("failed to parse HTTP_TUNNEL_LISTEN_PORT, set default port 7777")
-			httpTunnelListenPort = 7777
-		}
-
-		httpTl := &koupleless_http_tunnel.HttpTunnel{
-			Cache:  mgr.GetCache(),
-			Client: mgr.GetClient(),
-			Port:   httpTunnelListenPort,
-		}
-		tunnels = append(tunnels, httpTl)
-		moduleTunnels = append(moduleTunnels, httpTl)
-	}
-
 	// Configure and create VNode controller
 	rcc := vkModel.BuildVNodeControllerConfig{
 		ClientID:         clientID,
@@ -156,19 +124,7 @@ func main() {
 		VNodeWorkerNum:   vnodeWorkerNum,
 	}
 
-	vc, err := vnode_controller.NewVNodeController(&rcc, tunnels)
-	if err != nil {
-		log.G(ctx).Error(err, "unable to set up VNodeController")
-		return
-	}
-
-	err = vc.SetupWithManager(ctx, mgr)
-	if err != nil {
-		log.G(ctx).WithError(err).Error("unable to setup vnode controller")
-		return
-	}
-
-	mdc, err := module_deployment_controller.NewModuleDeploymentController(env, moduleTunnels)
+	mdc, err := module_deployment_controller.NewModuleDeploymentController(env)
 	if err != nil {
 		log.G(ctx).Error(err, "unable to set up module_deployment_controller")
 		return
@@ -180,14 +136,18 @@ func main() {
 		return
 	}
 
-	// Start all tunnels
-	for _, t := range tunnels {
-		err = t.Start(ctx, clientID, env)
-		if err != nil {
-			log.G(ctx).WithError(err).Error("failed to start tunnel", t.Key())
-		} else {
-			log.G(ctx).Info("Tunnel started: ", t.Key())
-		}
+	tunnel := startTunnels(ctx, clientID, env, mgr, mdc)
+
+	vc, err := vnode_controller.NewVNodeController(&rcc, tunnel)
+	if err != nil {
+		log.G(ctx).Error(err, "unable to set up VNodeController")
+		return
+	}
+
+	err = vc.SetupWithManager(ctx, mgr)
+	if err != nil {
+		log.G(ctx).WithError(err).Error("unable to setup vnode controller")
+		return
 	}
 
 	if err := mgr.AddHealthzCheck("healthz", healthz.Ping); err != nil {
@@ -204,4 +164,51 @@ func main() {
 	if err != nil {
 		log.G(ctx).WithError(err).Error("failed to start manager")
 	}
+}
+
+func startTunnels(ctx context.Context, clientId string, env string, mgr manager.Manager,
+	moduleDeploymentController *module_deployment_controller.ModuleDeploymentController) tunnel.Tunnel {
+	// Initialize tunnels based on configuration
+	tunnels := make([]tunnel.Tunnel, 0)
+
+	mqttTunnelEnable := utils.GetEnv("ENABLE_MQTT_TUNNEL", "false")
+	if mqttTunnelEnable == "true" {
+		mqttTl := koupleless_mqtt_tunnel.NewMqttTunnel(env, mgr.GetClient(), moduleDeploymentController)
+		tunnels = append(tunnels, &mqttTl)
+	}
+
+	httpTunnelEnable := utils.GetEnv("ENABLE_HTTP_TUNNEL", "false")
+	if httpTunnelEnable == "true" {
+		httpTunnelListenPort, err := strconv.Atoi(utils.GetEnv("HTTP_TUNNEL_LISTEN_PORT", "7777"))
+
+		if err != nil {
+			log.G(ctx).WithError(err).Error("failed to parse HTTP_TUNNEL_LISTEN_PORT, set default port 7777")
+			httpTunnelListenPort = 7777
+		}
+
+		httpTl := koupleless_http_tunnel.NewHttpTunnel(env, mgr.GetClient(), moduleDeploymentController, httpTunnelListenPort)
+		tunnels = append(tunnels, &httpTl)
+	}
+
+	// Start all tunnels
+	successTunnelCount := 0
+	startFailedCount := 0
+	for _, t := range tunnels {
+		err := t.Start(ctx, clientId, env)
+		if err != nil {
+			log.G(ctx).WithError(err).Error("failed to start tunnel", t.Key())
+			startFailedCount++
+		} else {
+			log.G(ctx).Info("Tunnel started: ", t.Key())
+			successTunnelCount++
+		}
+	}
+
+	if startFailedCount > 0 {
+		panic(errors.New(fmt.Sprintf("failed to start %d tunnels", startFailedCount)))
+	} else if successTunnelCount == 0 {
+		panic(errors.New(fmt.Sprintf("successfully started 0 tunnels")))
+	}
+	// we only using one tunnel for now
+	return tunnels[0]
 }

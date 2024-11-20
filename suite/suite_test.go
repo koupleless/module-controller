@@ -2,16 +2,16 @@ package suite
 
 import (
 	"context"
+	"fmt"
 	model2 "github.com/koupleless/module_controller/common/model"
 	"github.com/koupleless/module_controller/controller/module_deployment_controller"
-	"github.com/koupleless/module_controller/module_tunnels"
 	"github.com/koupleless/module_controller/module_tunnels/koupleless_http_tunnel"
 	"github.com/koupleless/module_controller/module_tunnels/koupleless_mqtt_tunnel"
 	"github.com/koupleless/virtual-kubelet/common/log"
 	logruslogger "github.com/koupleless/virtual-kubelet/common/log/logrus"
-	"github.com/koupleless/virtual-kubelet/controller/vnode_controller"
 	"github.com/koupleless/virtual-kubelet/model"
 	"github.com/koupleless/virtual-kubelet/tunnel"
+	"github.com/koupleless/virtual-kubelet/vnode_controller"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/sirupsen/logrus"
@@ -86,7 +86,14 @@ var _ = BeforeSuite(func() {
 	err = mqttServer.AddListener(tcp)
 	Expect(err).NotTo(HaveOccurred())
 
-	go mqttServer.Serve()
+	ctx := context.Background()
+	go func() {
+		err := mqttServer.Serve()
+		if err != nil {
+			log.G(ctx).Error("failed to start mqtt server")
+			panic(err)
+		}
+	}()
 
 	err = scheme.AddToScheme(scheme.Scheme)
 	Expect(err).NotTo(HaveOccurred())
@@ -96,46 +103,39 @@ var _ = BeforeSuite(func() {
 	})
 	Expect(err).ToNot(HaveOccurred())
 
-	mqttTunnel.Client = k8sManager.GetClient()
-	mqttTunnel.Cache = k8sManager.GetCache()
-	httpTunnel.Client = k8sManager.GetClient()
-	httpTunnel.Cache = k8sManager.GetCache()
-	httpTunnel.Port = 7777
-
-	tunnels := []tunnel.Tunnel{
-		&mqttTunnel,
-		&httpTunnel,
-	}
-
-	ctx := context.Background()
-
-	vnodeController, err := vnode_controller.NewVNodeController(&model.BuildVNodeControllerConfig{
-		ClientID:       clientID,
-		Env:            env,
-		VPodIdentity:   model2.ComponentModule,
-		VNodeWorkerNum: 4,
-	}, tunnels)
-	Expect(err).ToNot(HaveOccurred())
-
-	err = vnodeController.SetupWithManager(ctx, k8sManager)
-
-	moduleDeploymentController, err := module_deployment_controller.NewModuleDeploymentController(env, []module_tunnels.ModuleTunnel{
-		&mqttTunnel,
-	})
+	moduleDeploymentController, err := module_deployment_controller.NewModuleDeploymentController(env)
 	Expect(err).ToNot(HaveOccurred())
 
 	err = moduleDeploymentController.SetupWithManager(ctx, k8sManager)
 
 	Expect(err).ToNot(HaveOccurred())
 
+	mqttTunnel = koupleless_mqtt_tunnel.NewMqttTunnel(env, k8sManager.GetClient(), moduleDeploymentController)
+	httpTunnel = koupleless_http_tunnel.NewHttpTunnel(env, k8sManager.GetClient(), moduleDeploymentController, 7777)
+
+	tunnels := []tunnel.Tunnel{
+		&mqttTunnel,
+		&httpTunnel,
+	}
 	for _, t := range tunnels {
 		err = t.Start(ctx, clientID, env)
 		if err != nil {
 			log.G(ctx).WithError(err).Error("failed to start tunnel", t.Key())
+			panic(fmt.Sprintf("failed to start tunnel %s", t.Key()))
 		} else {
 			log.G(ctx).Info("Tunnel started: ", t.Key())
 		}
 	}
+
+	vnodeController, err := vnode_controller.NewVNodeController(&model.BuildVNodeControllerConfig{
+		ClientID:       clientID,
+		Env:            env,
+		VPodIdentity:   model2.ComponentModule,
+		VNodeWorkerNum: 4,
+	}, tunnels[0])
+	Expect(err).ToNot(HaveOccurred())
+
+	err = vnodeController.SetupWithManager(ctx, k8sManager)
 
 	k8sClient = k8sManager.GetClient()
 	Expect(k8sClient).ToNot(BeNil())

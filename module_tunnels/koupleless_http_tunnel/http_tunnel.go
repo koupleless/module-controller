@@ -4,6 +4,8 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"github.com/koupleless/module_controller/controller/module_deployment_controller"
+	utils2 "github.com/koupleless/virtual-kubelet/common/utils"
 	"net/http"
 	"sync"
 	"time"
@@ -13,28 +15,25 @@ import (
 	"github.com/koupleless/arkctl/v1/service/ark"
 	"github.com/koupleless/module_controller/common/model"
 	"github.com/koupleless/module_controller/common/utils"
-	"github.com/koupleless/module_controller/module_tunnels"
 	"github.com/koupleless/module_controller/module_tunnels/koupleless_http_tunnel/ark_service"
 	"github.com/koupleless/virtual-kubelet/common/log"
 	vkModel "github.com/koupleless/virtual-kubelet/model"
 	"github.com/koupleless/virtual-kubelet/tunnel"
 	"github.com/sirupsen/logrus"
 	corev1 "k8s.io/api/core/v1"
-	"sigs.k8s.io/controller-runtime/pkg/cache"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
-var _ module_tunnels.ModuleTunnel = &HttpTunnel{}
+var _ tunnel.Tunnel = &HttpTunnel{}
 
 type HttpTunnel struct {
 	sync.Mutex
 
 	arkService *ark_service.Service
 
-	cache.Cache
-	client.Client
-	env  string
-	Port int
+	kubeClient client.Client
+	env        string
+	Port       int
 
 	ready bool
 
@@ -42,14 +41,24 @@ type HttpTunnel struct {
 	onHealthDataArrived      tunnel.OnBaseStatusArrived
 	onQueryAllBizDataArrived tunnel.OnAllBizStatusArrived
 	onOneBizDataArrived      tunnel.OnSingleBizStatusArrived
-	queryBaseline            module_tunnels.QueryBaseline
 
 	onlineNode map[string]bool
 
-	nodeNetworkInfoOfNodeID map[string]model.NetworkInfo
+	nodeIdToBaseStatusMap map[string]model.BaseStatus
 
 	queryAllBizLock         sync.Mutex
 	queryAllBizDataOutdated bool
+
+	moduleDeploymentController *module_deployment_controller.ModuleDeploymentController
+}
+
+func NewHttpTunnel(env string, kubeClient client.Client, moduleDeploymentController *module_deployment_controller.ModuleDeploymentController, port int) HttpTunnel {
+	return HttpTunnel{
+		env:                        env,
+		kubeClient:                 kubeClient,
+		moduleDeploymentController: moduleDeploymentController,
+		Port:                       port,
+	}
 }
 
 // Ready returns the current status of the tunnel
@@ -62,28 +71,30 @@ func (h *HttpTunnel) GetBizUniqueKey(container *corev1.Container) string {
 	return utils.GetBizIdentity(container.Name, utils.GetBizVersionFromContainer(container))
 }
 
-// OnNodeStart is called when a new node starts
-func (h *HttpTunnel) OnNodeStart(ctx context.Context, nodeID string, initData vkModel.NodeInfo) {
+// RegisterNode is called when a new node starts
+func (h *HttpTunnel) RegisterNode(ctx context.Context, initData vkModel.NodeInfo) {
 	h.Lock()
 	defer h.Unlock()
 
 	// check base network info, if not exist, extract from initData
-	_, has := h.nodeNetworkInfoOfNodeID[nodeID]
+	nodeID := utils2.ExtractNodeIDFromNodeName(initData.Metadata.Name)
+	_, has := h.nodeIdToBaseStatusMap[nodeID]
 	if !has {
-		h.nodeNetworkInfoOfNodeID[nodeID] = utils.ExtractNetworkInfoFromNodeInfoData(initData)
+		h.nodeIdToBaseStatusMap[nodeID] = utils.ConvertBaseStatusFromNodeInfo(initData)
 	}
 }
 
-// OnNodeStop is called when a node stops
-func (h *HttpTunnel) OnNodeStop(ctx context.Context, nodeID string) {
+// UnRegisterNode is called when a node stops
+func (h *HttpTunnel) UnRegisterNode(ctx context.Context, nodeName string) {
 	h.Lock()
 	defer h.Unlock()
-	delete(h.nodeNetworkInfoOfNodeID, nodeID)
+	nodeID := utils2.ExtractNodeIDFromNodeName(nodeName)
+	delete(h.nodeIdToBaseStatusMap, nodeID)
 }
 
 // OnNodeNotReady is called when a node is not ready
-func (h *HttpTunnel) OnNodeNotReady(ctx context.Context, info vkModel.UnreachableNodeInfo) {
-	utils.OnBaseUnreachable(ctx, info, h.env, h.Client)
+func (h *HttpTunnel) OnNodeNotReady(ctx context.Context, nodeName string) {
+	utils.OnBaseUnreachable(ctx, nodeName, h.kubeClient)
 }
 
 // Key returns the key of the tunnel
@@ -102,15 +113,10 @@ func (h *HttpTunnel) RegisterCallback(onBaseDiscovered tunnel.OnBaseDiscovered, 
 	h.onOneBizDataArrived = onOneBizDataArrived
 }
 
-// RegisterQuery registers the query function for the tunnel
-func (h *HttpTunnel) RegisterQuery(queryBaseline module_tunnels.QueryBaseline) {
-	h.queryBaseline = queryBaseline
-}
-
 // Start starts the tunnel
 func (h *HttpTunnel) Start(ctx context.Context, clientID, env string) (err error) {
 	h.onlineNode = make(map[string]bool)
-	h.nodeNetworkInfoOfNodeID = make(map[string]model.NetworkInfo)
+	h.nodeIdToBaseStatusMap = make(map[string]model.BaseStatus)
 	h.env = env
 
 	h.arkService = ark_service.NewService()
@@ -140,7 +146,7 @@ func (h *HttpTunnel) startBaseDiscovery(ctx context.Context) {
 			return
 		}
 
-		heartbeatData := model.HeartBeatData{}
+		heartbeatData := model.BaseStatus{}
 		err := json.NewDecoder(r.Body).Decode(&heartbeatData)
 		if err != nil {
 			logger.WithError(err).Error("failed to unmarshal heartbeat data")
@@ -149,9 +155,9 @@ func (h *HttpTunnel) startBaseDiscovery(ctx context.Context) {
 			return
 		}
 		h.Lock()
-		h.nodeNetworkInfoOfNodeID[heartbeatData.BaseID] = heartbeatData.NetworkInfo
+		h.nodeIdToBaseStatusMap[heartbeatData.BaseMetadata.Identity] = heartbeatData
 		h.Unlock()
-		h.onBaseDiscovered(heartbeatData.BaseID, utils.TranslateHeartBeatDataToNodeInfo(heartbeatData), h)
+		h.onBaseDiscovered(utils.ConvertBaseStatusToNodeInfo(heartbeatData, h.env))
 
 		w.WriteHeader(http.StatusOK)
 		w.Write([]byte("SUCCESS"))
@@ -163,21 +169,19 @@ func (h *HttpTunnel) startBaseDiscovery(ctx context.Context) {
 			return
 		}
 
-		queryBaselineRequest := model.Metadata{}
-		err := json.NewDecoder(r.Body).Decode(&queryBaselineRequest)
+		baseMetadata := model.BaseMetadata{}
+		err := json.NewDecoder(r.Body).Decode(&baseMetadata)
 		if err != nil {
-			logger.WithError(err).Error("failed to unmarshal queryBaselineRequest data")
+			logger.WithError(err).Error("failed to unmarshal baseMetadata data")
 			w.WriteHeader(http.StatusBadRequest)
 			w.Write([]byte(err.Error()))
 			return
 		}
 
 		baselineBizs := make([]ark.BizModel, 0)
-		if h.queryBaseline != nil {
-			baseline := h.queryBaseline(utils.TranslateHeartBeatDataToBaselineQuery(queryBaselineRequest))
-			for _, container := range baseline {
-				baselineBizs = append(baselineBizs, utils.TranslateCoreV1ContainerToBizModel(&container))
-			}
+		baseline := h.moduleDeploymentController.QueryContainerBaseline(utils.ConvertBaseMetadataToBaselineQuery(baseMetadata))
+		for _, container := range baseline {
+			baselineBizs = append(baselineBizs, utils.TranslateCoreV1ContainerToBizModel(&container))
 		}
 
 		jsonData, _ := json.Marshal(baselineBizs)
@@ -203,27 +207,20 @@ func (h *HttpTunnel) startBaseDiscovery(ctx context.Context) {
 		}
 	}()
 	<-ctx.Done()
-
 }
 
 // healthMsgCallback is the callback function for health messages
 func (h *HttpTunnel) healthMsgCallback(nodeID string, data ark_service.HealthResponse) {
-	if data.BaseID != nodeID {
-		return
-	}
 	if data.Code != "SUCCESS" {
 		return
 	}
 	if h.onHealthDataArrived != nil {
-		h.onHealthDataArrived(nodeID, utils.TranslateHealthDataToNodeStatus(data.Data.HealthData))
+		h.onHealthDataArrived(nodeID, utils.ConvertHealthDataToNodeStatus(data.Data.HealthData))
 	}
 }
 
 // allBizMsgCallback is the callback function for all business messages
 func (h *HttpTunnel) allBizMsgCallback(nodeID string, data ark_service.QueryAllBizResponse) {
-	if data.BaseID != nodeID {
-		return
-	}
 	if data.Code != "SUCCESS" {
 		return
 	}
@@ -234,9 +231,6 @@ func (h *HttpTunnel) allBizMsgCallback(nodeID string, data ark_service.QueryAllB
 
 // bizOperationResponseCallback is the callback function for business operation responses
 func (h *HttpTunnel) bizOperationResponseCallback(nodeID string, data model.BizOperationResponse) {
-	if data.Response.BaseID != nodeID {
-		return
-	}
 	if data.Response.Code == "SUCCESS" {
 		if data.Command == model.CommandInstallBiz {
 			// not update here, update in all biz response callback
@@ -260,15 +254,16 @@ func (h *HttpTunnel) bizOperationResponseCallback(nodeID string, data model.BizO
 }
 
 // FetchHealthData fetches health data from the node
-func (h *HttpTunnel) FetchHealthData(ctx context.Context, nodeID string) error {
+func (h *HttpTunnel) FetchHealthData(ctx context.Context, nodeName string) error {
 	h.Lock()
-	networkInfo, ok := h.nodeNetworkInfoOfNodeID[nodeID]
+	nodeID := utils2.ExtractNodeIDFromNodeName(nodeName)
+	baseStatus, ok := h.nodeIdToBaseStatusMap[nodeID]
 	h.Unlock()
 	if !ok {
 		return errors.New("network info not found")
 	}
 
-	healthData, err := h.arkService.Health(ctx, networkInfo.LocalIP, networkInfo.ArkletPort)
+	healthData, err := h.arkService.Health(ctx, baseStatus.LocalIP, baseStatus.Port)
 
 	if err != nil {
 		return err
@@ -280,7 +275,7 @@ func (h *HttpTunnel) FetchHealthData(ctx context.Context, nodeID string) error {
 }
 
 // QueryAllBizStatusData queries all container status data from the node
-func (h *HttpTunnel) QueryAllBizStatusData(ctx context.Context, nodeID string) error {
+func (h *HttpTunnel) QueryAllBizStatusData(ctx context.Context, nodeName string) error {
 	// add a signal to check
 	success := h.queryAllBizLock.TryLock()
 	if !success {
@@ -292,18 +287,19 @@ func (h *HttpTunnel) QueryAllBizStatusData(ctx context.Context, nodeID string) e
 	defer func() {
 		h.queryAllBizLock.Unlock()
 		if h.queryAllBizDataOutdated {
-			go h.QueryAllBizStatusData(ctx, nodeID)
+			go h.QueryAllBizStatusData(ctx, nodeName)
 		}
 	}()
 
 	h.Lock()
-	networkInfo, ok := h.nodeNetworkInfoOfNodeID[nodeID]
+	nodeID := utils2.ExtractNodeIDFromNodeName(nodeName)
+	baseStatus, ok := h.nodeIdToBaseStatusMap[nodeID]
 	h.Unlock()
 	if !ok {
 		return errors.New("network info not found")
 	}
 
-	allBizData, err := h.arkService.QueryAllBiz(ctx, networkInfo.LocalIP, networkInfo.ArkletPort)
+	allBizData, err := h.arkService.QueryAllBiz(ctx, baseStatus.LocalIP, baseStatus.Port)
 
 	if err != nil {
 		return err
@@ -315,10 +311,10 @@ func (h *HttpTunnel) QueryAllBizStatusData(ctx context.Context, nodeID string) e
 }
 
 // StartBiz starts a container on the node
-func (h *HttpTunnel) StartBiz(ctx context.Context, nodeID, _ string, container *corev1.Container) error {
-
+func (h *HttpTunnel) StartBiz(ctx context.Context, nodeName, _ string, container *corev1.Container) error {
+	nodeID := utils2.ExtractNodeIDFromNodeName(nodeName)
 	h.Lock()
-	networkInfo, ok := h.nodeNetworkInfoOfNodeID[nodeID]
+	baseStatus, ok := h.nodeIdToBaseStatusMap[nodeID]
 	h.Unlock()
 	if !ok {
 		return errors.New("network info not found")
@@ -337,22 +333,20 @@ func (h *HttpTunnel) StartBiz(ctx context.Context, nodeID, _ string, container *
 
 	response, err := h.arkService.InstallBiz(ctx, ark_service.InstallBizRequest{
 		BizModel: bizModel,
-	}, networkInfo.LocalIP, networkInfo.ArkletPort)
+	}, baseStatus.LocalIP, baseStatus.Port)
 
 	bizOperationResponse.Response = response
 
 	h.bizOperationResponseCallback(nodeID, bizOperationResponse)
 
-	go h.QueryAllBizStatusData(ctx, nodeID)
-
 	return err
 }
 
 // StopBiz shuts down a container on the node
-func (h *HttpTunnel) StopBiz(ctx context.Context, nodeID, _ string, container *corev1.Container) error {
-
+func (h *HttpTunnel) StopBiz(ctx context.Context, nodeName, _ string, container *corev1.Container) error {
+	nodeID := utils2.ExtractNodeIDFromNodeName(nodeName)
 	h.Lock()
-	networkInfo, ok := h.nodeNetworkInfoOfNodeID[nodeID]
+	baseStatus, ok := h.nodeIdToBaseStatusMap[nodeID]
 	h.Unlock()
 	if !ok {
 		return errors.New("network info not found")
@@ -370,13 +364,11 @@ func (h *HttpTunnel) StopBiz(ctx context.Context, nodeID, _ string, container *c
 
 	response, err := h.arkService.UninstallBiz(ctx, ark_service.UninstallBizRequest{
 		BizModel: bizModel,
-	}, networkInfo.LocalIP, networkInfo.ArkletPort)
+	}, baseStatus.LocalIP, baseStatus.Port)
 
 	bizOperationResponse.Response = response
 
 	h.bizOperationResponseCallback(nodeID, bizOperationResponse)
-
-	go h.QueryAllBizStatusData(ctx, nodeID)
 
 	return err
 }

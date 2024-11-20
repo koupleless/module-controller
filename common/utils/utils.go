@@ -19,8 +19,8 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
-// GetBaseIDFromTopic extracts the base ID from a topic string by splitting on '/'
-func GetBaseIDFromTopic(topic string) string {
+// GetBaseIdentityFromTopic extracts the base ID from a topic string by splitting on '/'
+func GetBaseIdentityFromTopic(topic string) string {
 	fileds := strings.Split(topic, "/")
 	if len(fileds) < 2 {
 		return ""
@@ -69,32 +69,34 @@ func GetBizIdentity(bizName, bizVersion string) string {
 	return bizName + ":" + bizVersion
 }
 
-// TranslateHeartBeatDataToNodeInfo converts heartbeat data to node info
-func TranslateHeartBeatDataToNodeInfo(data model.HeartBeatData) vkModel.NodeInfo {
-	state := vkModel.NodeStatusDeactivated
+// ConvertBaseStatusToNodeInfo converts heartbeat data to node info
+func ConvertBaseStatusToNodeInfo(data model.BaseStatus, env string) vkModel.NodeInfo {
+	state := vkModel.NodeStateDeactivated
 	if data.State == "ACTIVATED" {
-		state = vkModel.NodeStatusActivated
+		state = vkModel.NodeStateActivated
 	}
 	labels := map[string]string{}
-	if data.NetworkInfo.ArkletPort != 0 {
-		labels[model.LabelKeyOfArkletPort] = strconv.Itoa(data.NetworkInfo.ArkletPort)
+	if data.Port != 0 {
+		labels[model.LabelKeyOfTunnelPort] = strconv.Itoa(data.Port)
 	}
+
 	return vkModel.NodeInfo{
 		Metadata: vkModel.NodeMetadata{
-			Name:    data.MasterBizInfo.Name,
-			Version: data.MasterBizInfo.Version,
-			Status:  state,
+			Name:        utils.FormatNodeName(data.BaseMetadata.Identity, env),
+			ClusterName: data.BaseMetadata.ClusterName,
+			Version:     data.BaseMetadata.Version,
 		},
 		NetworkInfo: vkModel.NetworkInfo{
-			NodeIP:   data.NetworkInfo.LocalIP,
-			HostName: data.NetworkInfo.LocalHostName,
+			NodeIP:   data.LocalIP,
+			HostName: data.LocalHostName,
 		},
 		CustomLabels: labels,
+		State:        state,
 	}
 }
 
-// TranslateHealthDataToNodeStatus converts health data to node status
-func TranslateHealthDataToNodeStatus(data ark.HealthData) vkModel.NodeStatusData {
+// ConvertHealthDataToNodeStatus converts health data to node status
+func ConvertHealthDataToNodeStatus(data ark.HealthData) vkModel.NodeStatusData {
 	resourceMap := make(map[corev1.ResourceName]vkModel.NodeResource)
 	memory := vkModel.NodeResource{}
 	// Set memory capacity if JavaMaxMetaspace is valid (not -1)
@@ -116,11 +118,12 @@ func TranslateHealthDataToNodeStatus(data ark.HealthData) vkModel.NodeStatusData
 	}
 }
 
-// TranslateHeartBeatDataToBaselineQuery converts heartbeat metadata to a baseline query
-func TranslateHeartBeatDataToBaselineQuery(data model.Metadata) model.QueryBaselineRequest {
+// ConvertBaseMetadataToBaselineQuery converts heartbeat metadata to a baseline query
+func ConvertBaseMetadataToBaselineQuery(data model.BaseMetadata) model.QueryBaselineRequest {
 	return model.QueryBaselineRequest{
-		Name:    data.Name,
-		Version: data.Version,
+		Identity:    data.Identity,
+		ClusterName: data.ClusterName,
+		Version:     data.Version,
 		CustomLabels: map[string]string{
 			model.LabelKeyOfTechStack: "java",
 		},
@@ -200,12 +203,11 @@ func GetLatestState(state string, records []ark.ArkBizStateRecord) (time.Time, s
 }
 
 // OnBaseUnreachable handles cleanup when a base becomes unreachable
-func OnBaseUnreachable(ctx context.Context, info vkModel.UnreachableNodeInfo, env string, k8sClient client.Client) {
+func OnBaseUnreachable(ctx context.Context, nodeName string, k8sClient client.Client) {
 	// base not ready, delete from api server
 	node := corev1.Node{}
-	nodeName := utils.FormatNodeName(info.NodeID, env)
 	err := k8sClient.Get(ctx, client.ObjectKey{Name: nodeName}, &node)
-	logger := log.G(ctx).WithField("nodeID", info.NodeID).WithField("func", "OnNodeNotReady")
+	logger := log.G(ctx).WithField("nodeName", nodeName).WithField("func", "OnNodeNotReady")
 	if err == nil {
 		// delete node from api server
 		logger.Info("DeleteBaseNode")
@@ -220,9 +222,9 @@ func OnBaseUnreachable(ctx context.Context, info vkModel.UnreachableNodeInfo, en
 	}
 }
 
-// ExtractNetworkInfoFromNodeInfoData extracts network info from node info
-func ExtractNetworkInfoFromNodeInfoData(initData vkModel.NodeInfo) model.NetworkInfo {
-	portStr := initData.CustomLabels[model.LabelKeyOfArkletPort]
+// ConvertBaseStatusFromNodeInfo extracts network info from node info
+func ConvertBaseStatusFromNodeInfo(initData vkModel.NodeInfo) model.BaseStatus {
+	portStr := initData.CustomLabels[model.LabelKeyOfTunnelPort]
 
 	port, err := strconv.Atoi(portStr)
 	if err != nil {
@@ -230,9 +232,16 @@ func ExtractNetworkInfoFromNodeInfoData(initData vkModel.NodeInfo) model.Network
 		port = 1238
 	}
 
-	return model.NetworkInfo{
+	return model.BaseStatus{
+		BaseMetadata: model.BaseMetadata{
+			Identity:    utils.ExtractNodeIDFromNodeName(initData.Metadata.Name),
+			Version:     initData.Metadata.Version,
+			ClusterName: initData.Metadata.ClusterName,
+		},
+
 		LocalIP:       initData.NetworkInfo.NodeIP,
 		LocalHostName: initData.NetworkInfo.HostName,
-		ArkletPort:    port,
+		Port:          port,
+		State:         string(initData.State),
 	}
 }

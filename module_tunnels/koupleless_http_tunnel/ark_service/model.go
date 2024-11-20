@@ -26,18 +26,16 @@ type ArkResponse struct {
 	// ErrorStackTrace is the error stack trace in case of an error
 	ErrorStackTrace string `json:"errorStackTrace"`
 
-	// BaseID is a unique identifier for the base service
-	BaseID string `json:"baseID"`
+	// BaseIdentity is a unique identifier for the base service
+	BaseIdentity string `json:"baseIdentity"`
 }
 
 // QueryAllBizResponse represents the response for querying all business services
 type QueryAllBizResponse struct {
 	ark.GenericArkResponseBase[[]ark.ArkBizInfo]
-	BaseID string `json:"baseID"`
 }
 
 // HealthResponse represents the response for health checks
 type HealthResponse struct {
 	ark.GenericArkResponseBase[ark.HealthInfo]
-	BaseID string `json:"baseID"`
 }
