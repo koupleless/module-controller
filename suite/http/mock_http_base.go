@@ -8,6 +8,8 @@ import (
 	"github.com/koupleless/arkctl/v1/service/ark"
 	"github.com/koupleless/module_controller/common/model"
 	"github.com/koupleless/module_controller/module_tunnels/koupleless_http_tunnel/ark_service"
+	"github.com/koupleless/virtual-kubelet/common/log"
+	"github.com/koupleless/virtual-kubelet/common/utils"
 	"github.com/sirupsen/logrus"
 	"io"
 	"net/http"
@@ -135,6 +137,16 @@ func (b *MockHttpBase) Start(ctx context.Context, clientID string) error {
 
 	go server.ListenAndServe()
 
+	// Start a new goroutine to upload node heart beat data every 10 seconds
+	go utils.TimedTaskWithInterval(ctx, time.Second*10, func(ctx context.Context) {
+		log.G(ctx).Info("upload node heart beat data from node ", b.Metadata.Identity)
+
+		_, err := http.Post("http://127.0.0.1:7777/heartbeat", "application/json", bytes.NewBuffer(b.getHeartBeatMsg()))
+		if err != nil {
+			logrus.Errorf("error calling heartbeat: %s", err)
+		}
+	})
+
 	_, err := http.Post("http://127.0.0.1:7777/heartbeat", "application/json", bytes.NewBuffer(b.getHeartBeatMsg()))
 	if err != nil {
 		logrus.Errorf("error calling heartbeat: %s", err)
@@ -146,9 +158,10 @@ func (b *MockHttpBase) Start(ctx context.Context, clientID string) error {
 		case <-ctx.Done():
 		case <-b.exit:
 		}
-		server.Shutdown(ctx)
 		b.CurrState = "DEACTIVATED"
 		_, err = http.Post("http://127.0.0.1:7777/heartbeat", "application/json", bytes.NewBuffer(b.getHeartBeatMsg()))
+		time.Sleep(2 * time.Second)
+		server.Shutdown(ctx)
 		if err != nil {
 			logrus.Errorf("error calling heartbeat: %s", err)
 		}

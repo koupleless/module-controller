@@ -27,6 +27,7 @@ import (
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
 	"sigs.k8s.io/controller-runtime/pkg/log/zap"
 	"testing"
+	"time"
 )
 
 // These tests use Ginkgo (BDD-style Go testing framework). Refer to
@@ -37,6 +38,7 @@ var testEnv *envtest.Environment
 var k8sClient client.Client
 var mqttTunnel koupleless_mqtt_tunnel.MqttTunnel
 var mqttServer *mqtt.Server
+var ctx, cancel = context.WithCancel(context.Background())
 
 const (
 	clientID = "suite-test"
@@ -83,7 +85,6 @@ var _ = BeforeSuite(func() {
 	err = mqttServer.AddListener(tcp)
 	Expect(err).NotTo(HaveOccurred())
 
-	ctx := context.Background()
 	go func() {
 		err := mqttServer.Serve()
 		if err != nil {
@@ -140,8 +141,10 @@ var _ = BeforeSuite(func() {
 
 var _ = AfterSuite(func() {
 	By("tearing down the suite environment")
-	testEnv.Stop()
 	mqttServer.Close()
+	testEnv.Stop()
+	time.Sleep(15 * time.Second)
+	log.G(ctx).Info("suite for mqtt stopped!")
 })
 
 func prepareModulePod(name, namespace, nodeName string) v1.Pod {

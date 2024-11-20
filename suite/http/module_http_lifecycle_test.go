@@ -38,7 +38,7 @@ var _ = Describe("Module Lifecycle Test", func() {
 					}
 				}
 				return err == nil && vnodeReady
-			}, time.Second*20, time.Second).Should(BeTrue())
+			}, time.Second*50, time.Second).Should(BeTrue())
 		})
 
 		It("publish a module pod and it should be running", func() {
