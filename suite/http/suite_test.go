@@ -23,6 +23,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/envtest"
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
 	"sigs.k8s.io/controller-runtime/pkg/log/zap"
+	metricsserver "sigs.k8s.io/controller-runtime/pkg/metrics/server"
 	"testing"
 	"time"
 )
@@ -69,6 +70,9 @@ var _ = BeforeSuite(func() {
 
 	k8sManager, err := ctrl.NewManager(cfg, ctrl.Options{
 		Scheme: scheme.Scheme,
+		Metrics: metricsserver.Options{
+			BindAddress: ":8081",
+		},
 	})
 	Expect(err).ToNot(HaveOccurred())
 
@@ -104,7 +108,7 @@ var _ = BeforeSuite(func() {
 
 	go func() {
 		err = k8sManager.Start(ctx)
-		log.G(ctx).WithError(err).Error("k8sManager.Start")
+		log.G(ctx).WithError(err).Error("k8sManager Start")
 		Expect(err).ToNot(HaveOccurred())
 	}()
 
@@ -113,6 +117,7 @@ var _ = BeforeSuite(func() {
 
 var _ = AfterSuite(func() {
 	By("tearing down the suite environment")
+	cancel()
 	testEnv.Stop()
 	time.Sleep(15 * time.Second)
 	log.G(ctx).Info("suite for http stopped!")
