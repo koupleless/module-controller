@@ -170,7 +170,7 @@ var _ = Describe("Module Deployment Controller Test", func() {
 					Namespace: deployment1.Namespace,
 				}, depFromKubernetes)
 				return err == nil && *depFromKubernetes.Spec.Replicas == 1
-			}, time.Minute*20, time.Second).Should(BeTrue())
+			}, time.Second*20, time.Second).Should(BeTrue())
 		})
 
 		It("another node online and deployment replicas should be 2", func() {

@@ -27,7 +27,7 @@ type MockHttpBase struct {
 	Baseline  []ark.BizModel
 
 	exit      chan struct{}
-	reachable chan struct{}
+	reachable bool
 }
 
 func NewMockHttpBase(name, clusterName, version, env string, port int) *MockHttpBase {
@@ -41,7 +41,7 @@ func NewMockHttpBase(name, clusterName, version, env string, port int) *MockHttp
 		},
 		BizInfos:  make(map[string]ark.ArkBizInfo),
 		exit:      make(chan struct{}),
-		reachable: make(chan struct{}),
+		reachable: true,
 		port:      port,
 	}
 }
@@ -54,16 +54,7 @@ func (b *MockHttpBase) Exit() {
 	}
 }
 
-func (b *MockHttpBase) Unreachable() {
-	b.reachable = make(chan struct{})
-}
-
 func (b *MockHttpBase) Start(ctx context.Context, clientID string) error {
-	select {
-	case <-b.reachable:
-	default:
-		close(b.reachable)
-	}
 	b.exit = make(chan struct{})
 	b.CurrState = "ACTIVATED"
 	// start a http server to mock base
@@ -75,30 +66,27 @@ func (b *MockHttpBase) Start(ctx context.Context, clientID string) error {
 	}
 
 	mux.HandleFunc("/health", func(w http.ResponseWriter, r *http.Request) {
-		select {
-		case <-b.reachable:
+		if b.reachable {
 			w.WriteHeader(http.StatusOK)
 			w.Header().Set("Content-Type", "application/json")
 			w.Write(b.getHealthMsg())
-		default:
+		} else {
 			w.WriteHeader(http.StatusBadGateway)
 		}
 	})
 
 	mux.HandleFunc("/queryAllBiz", func(w http.ResponseWriter, r *http.Request) {
-		select {
-		case <-b.reachable:
+		if b.reachable {
 			w.WriteHeader(http.StatusOK)
 			w.Header().Set("Content-Type", "application/json")
 			w.Write(b.getQueryAllBizMsg())
-		default:
+		} else {
 			w.WriteHeader(http.StatusBadGateway)
 		}
 	})
 
 	mux.HandleFunc("/installBiz", func(w http.ResponseWriter, r *http.Request) {
-		select {
-		case <-b.reachable:
+		if b.reachable {
 			w.WriteHeader(http.StatusOK)
 			w.Header().Set("Content-Type", "application/json")
 
@@ -110,15 +98,14 @@ func (b *MockHttpBase) Start(ctx context.Context, clientID string) error {
 			}
 
 			w.Write(b.processInstallBiz(body))
-		default:
+		} else {
 			w.WriteHeader(http.StatusBadGateway)
 		}
 
 	})
 
 	mux.HandleFunc("/uninstallBiz", func(w http.ResponseWriter, r *http.Request) {
-		select {
-		case <-b.reachable:
+		if b.reachable {
 			w.WriteHeader(http.StatusOK)
 			w.Header().Set("Content-Type", "application/json")
 
@@ -130,7 +117,7 @@ func (b *MockHttpBase) Start(ctx context.Context, clientID string) error {
 			}
 
 			w.Write(b.processUnInstallBiz(body))
-		default:
+		} else {
 			w.WriteHeader(http.StatusBadGateway)
 		}
 	})
