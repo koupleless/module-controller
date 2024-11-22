@@ -18,10 +18,13 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"github.com/go-logr/logr"
 	"github.com/koupleless/virtual-kubelet/vnode_controller"
 	"os"
 	"os/signal"
+	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/healthz"
+	log2 "sigs.k8s.io/controller-runtime/pkg/log"
 	"strconv"
 	"syscall"
 
@@ -99,6 +102,8 @@ func main() {
 
 	// Initialize controller manager
 	kubeConfig := config.GetConfigOrDie()
+	ctrl.SetLogger(logr.New(log2.NullLogSink{}))
+
 	mgr, err := manager.New(kubeConfig, manager.Options{
 		Cache:                  cache.Options{},
 		HealthProbeBindAddress: ":8081",

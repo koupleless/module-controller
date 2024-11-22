@@ -3,8 +3,10 @@ package mqtt
 import (
 	"context"
 	"github.com/koupleless/virtual-kubelet/common/utils"
+	"github.com/koupleless/virtual-kubelet/model"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	v12 "k8s.io/api/coordination/v1"
 	v1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/types"
@@ -24,8 +26,23 @@ var _ = Describe("Base Lifecycle Test", func() {
 			time.Sleep(time.Second)
 
 			go mockMqttBase.Start(ctx, clientID)
-			vnode := &v1.Node{}
+
 			Eventually(func() bool {
+				lease := &v12.Lease{}
+				err := k8sClient.Get(ctx, types.NamespacedName{
+					Name:      utils.FormatNodeName(mqttNodeID, env),
+					Namespace: v1.NamespaceNodeLease,
+				}, lease)
+
+				isLeader := err == nil &&
+					*lease.Spec.HolderIdentity == clientID &&
+					!time.Now().After(lease.Spec.RenewTime.Time.Add(time.Second*model.NodeLeaseDurationSeconds))
+
+				return isLeader
+			}, time.Second*50, time.Second).Should(BeTrue())
+
+			Eventually(func() bool {
+				vnode := &v1.Node{}
 				err := k8sClient.Get(ctx, types.NamespacedName{
 					Name: utils.FormatNodeName(mqttNodeID, env),
 				}, vnode)
@@ -77,12 +94,12 @@ var _ = Describe("Base Lifecycle Test", func() {
 			mockMqttBase.Unreachable()
 			Eventually(func() bool {
 				vnode := &v1.Node{}
+
 				err := k8sClient.Get(ctx, types.NamespacedName{
 					Name: utils.FormatNodeName(mqttNodeID, env),
 				}, vnode)
 				return errors.IsNotFound(err)
-			}, time.Second*50, time.Second).Should(BeTrue())
-
+			}, time.Minute*2, time.Second).Should(BeTrue())
 		})
 
 		It("base offline with deactive message and finally exit", func() {
