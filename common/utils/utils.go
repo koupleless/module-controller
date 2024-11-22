@@ -72,7 +72,7 @@ func GetBizIdentity(bizName, bizVersion string) string {
 // ConvertBaseStatusToNodeInfo converts heartbeat data to node info
 func ConvertBaseStatusToNodeInfo(data model.BaseStatus, env string) vkModel.NodeInfo {
 	state := vkModel.NodeStateDeactivated
-	if data.State == "ACTIVATED" {
+	if strings.EqualFold(data.State, "ACTIVATED") {
 		state = vkModel.NodeStateActivated
 	}
 	labels := map[string]string{}

@@ -6,10 +6,11 @@ toolchain go1.22.4
 
 require (
 	github.com/eclipse/paho.mqtt.golang v1.5.0
+	github.com/go-logr/logr v1.4.2
 	github.com/go-resty/resty/v2 v2.11.0
 	github.com/google/uuid v1.6.0
 	github.com/koupleless/arkctl v0.2.2
-	github.com/koupleless/virtual-kubelet v0.3.5-0.20241121083045-338035da2322
+	github.com/koupleless/virtual-kubelet v0.3.5-0.20241123170945-7c23dd02ea1e
 	github.com/onsi/ginkgo/v2 v2.19.0
 	github.com/onsi/gomega v1.33.1
 	github.com/sirupsen/logrus v1.9.3
@@ -31,7 +32,6 @@ require (
 	github.com/evanphx/json-patch/v5 v5.9.0 // indirect
 	github.com/fsnotify/fsnotify v1.7.0 // indirect
 	github.com/fxamacker/cbor/v2 v2.7.0 // indirect
-	github.com/go-logr/logr v1.4.2 // indirect
 	github.com/go-logr/zapr v1.3.0 // indirect
 	github.com/go-openapi/jsonpointer v0.19.6 // indirect
 	github.com/go-openapi/jsonreference v0.20.2 // indirect
