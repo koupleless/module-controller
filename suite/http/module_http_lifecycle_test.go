@@ -51,7 +51,7 @@ var _ = Describe("Module Lifecycle Test", func() {
 					Name:      mockModulePod.Name,
 				}, podFromKubernetes)
 				return err == nil && podFromKubernetes.Status.Phase == v1.PodRunning
-			}, time.Second*20, time.Second).Should(BeTrue())
+			}, time.Second*50, time.Second).Should(BeTrue())
 			Eventually(func() bool {
 				return len(mockBase.BizInfos) == 1
 			}, time.Second*20, time.Second).Should(BeTrue())

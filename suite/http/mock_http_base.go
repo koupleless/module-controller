@@ -126,11 +126,12 @@ func (b *MockHttpBase) Start(ctx context.Context, clientID string) error {
 
 	// Start a new goroutine to upload node heart beat data every 10 seconds
 	go utils.TimedTaskWithInterval(ctx, time.Second*10, func(ctx context.Context) {
-		log.G(ctx).Info("upload node heart beat data from node ", b.Metadata.Identity)
-
-		_, err := http.Post("http://127.0.0.1:7777/heartbeat", "application/json", bytes.NewBuffer(b.getHeartBeatMsg()))
-		if err != nil {
-			logrus.Errorf("error calling heartbeat: %s", err)
+		if b.reachable {
+			log.G(ctx).Info("upload node heart beat data from node ", b.Metadata.Identity)
+			_, err := http.Post("http://127.0.0.1:7777/heartbeat", "application/json", bytes.NewBuffer(b.getHeartBeatMsg()))
+			if err != nil {
+				logrus.Errorf("error calling heartbeat: %s", err)
+			}
 		}
 	})
 
