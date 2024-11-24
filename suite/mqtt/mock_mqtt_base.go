@@ -26,7 +26,7 @@ type MockMQTTBase struct {
 	client       *mqtt.Client
 
 	exit      chan struct{}
-	reachable chan struct{}
+	reachable bool
 }
 
 func NewMockMqttBase(baseName, clusterName, version, env string) *MockMQTTBase {
@@ -40,7 +40,7 @@ func NewMockMqttBase(baseName, clusterName, version, env string) *MockMQTTBase {
 		},
 		BizInfos:  make(map[string]ark.ArkBizInfo),
 		exit:      make(chan struct{}),
-		reachable: make(chan struct{}),
+		reachable: true,
 	}
 }
 
@@ -52,16 +52,7 @@ func (b *MockMQTTBase) Exit() {
 	}
 }
 
-func (b *MockMQTTBase) Unreachable() {
-	b.reachable = make(chan struct{})
-}
-
 func (b *MockMQTTBase) Start(ctx context.Context, clientID string) error {
-	select {
-	case <-b.reachable:
-	default:
-		close(b.reachable)
-	}
 	b.exit = make(chan struct{})
 	b.CurrState = "ACTIVATED"
 	var err error
@@ -84,14 +75,14 @@ func (b *MockMQTTBase) Start(ctx context.Context, clientID string) error {
 
 	// Start a new goroutine to upload node heart beat data every 10 seconds
 	go utils.TimedTaskWithInterval(ctx, time.Second*10, func(ctx context.Context) {
-		log.G(ctx).Info("upload node heart beat data from node ", b.BaseMetadata.Identity)
-		b.client.Pub(fmt.Sprintf("koupleless_%s/%s/base/heart", b.Env, b.BaseMetadata.Identity), 1, b.getHeartBeatMsg())
+		if b.reachable {
+			log.G(ctx).Info("upload node heart beat data from node ", b.BaseMetadata.Identity)
+			b.client.Pub(fmt.Sprintf("koupleless_%s/%s/base/heart", b.Env, b.BaseMetadata.Identity), 1, b.getHeartBeatMsg())
+		}
 	})
 
-	go func() {
-		// send heart beat message
-		b.client.Pub(fmt.Sprintf("koupleless_%s/%s/base/heart", b.Env, b.BaseMetadata.Identity), 1, b.getHeartBeatMsg())
-	}()
+	// send heart beat message
+	b.client.Pub(fmt.Sprintf("koupleless_%s/%s/base/heart", b.Env, b.BaseMetadata.Identity), 1, b.getHeartBeatMsg())
 
 	select {
 	case <-b.exit:
@@ -174,8 +165,7 @@ func (b *MockMQTTBase) getQueryAllBizMsg() []byte {
 
 func (b *MockMQTTBase) processCommand(_ paho.Client, msg paho.Message) {
 	defer msg.Ack()
-	select {
-	case <-b.reachable:
+	if b.reachable {
 		split := strings.Split(msg.Topic(), "/")
 		command := split[len(split)-1]
 		switch command {
@@ -188,8 +178,6 @@ func (b *MockMQTTBase) processCommand(_ paho.Client, msg paho.Message) {
 		case model.CommandQueryAllBiz:
 			go b.processQueryAllBiz()
 		}
-	default:
-		return
 	}
 }
 

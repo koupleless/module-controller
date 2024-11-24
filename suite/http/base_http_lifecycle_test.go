@@ -95,44 +95,41 @@ var _ = Describe("Base Lifecycle Test", func() {
 				err := k8sClient.Get(ctx, types.NamespacedName{
 					Name: utils.FormatNodeName(httpNodeID, env),
 				}, vnode)
-				return err == nil && vnode.Status.Conditions[0].LastTransitionTime.Time.Before(time.Now().Add(model.NodeLeaseDurationSeconds*time.Second))
-			}, time.Second*60, time.Second).Should(BeTrue())
+				return errors.IsNotFound(err)
+			}, time.Minute*2, time.Second).Should(BeTrue())
+		})
 
+		It("reachable base should become a ready vnode eventually", func() {
+			time.Sleep(time.Second)
+			mockHttpBase.reachable = true
+			go mockHttpBase.Start(ctx, clientID)
+			vnode := &v1.Node{}
+			Eventually(func() bool {
+				err := k8sClient.Get(ctx, types.NamespacedName{
+					Name: utils.FormatNodeName(httpNodeID, env),
+				}, vnode)
+				vnodeReady := false
+				for _, cond := range vnode.Status.Conditions {
+					if cond.Type == v1.NodeReady {
+						vnodeReady = cond.Status == v1.ConditionTrue
+						break
+					}
+				}
+				return err == nil && vnodeReady
+			}, time.Second*50, time.Second).Should(BeTrue())
+		})
+
+		It("base finally exit", func() {
 			mockHttpBase.Exit()
+
+			Eventually(func() bool {
+				vnode := &v1.Node{}
+				err := k8sClient.Get(ctx, types.NamespacedName{
+					Name: utils.FormatNodeName(httpNodeID, env),
+				}, vnode)
+				return errors.IsNotFound(err)
+			}, time.Second*50, time.Second).Should(BeTrue())
+
 		})
 	})
-
-	It("base should become a ready vnode eventually", func() {
-		time.Sleep(time.Second)
-		mockHttpBase.reachable = true
-		go mockHttpBase.Start(ctx, clientID)
-		vnode := &v1.Node{}
-		Eventually(func() bool {
-			err := k8sClient.Get(ctx, types.NamespacedName{
-				Name: utils.FormatNodeName(httpNodeID, env),
-			}, vnode)
-			vnodeReady := false
-			for _, cond := range vnode.Status.Conditions {
-				if cond.Type == v1.NodeReady {
-					vnodeReady = cond.Status == v1.ConditionTrue
-					break
-				}
-			}
-			return err == nil && vnodeReady
-		}, time.Second*50, time.Second).Should(BeTrue())
-	})
-
-	It("base id changed finally exit", func() {
-		mockHttpBase.Exit()
-
-		Eventually(func() bool {
-			vnode := &v1.Node{}
-			err := k8sClient.Get(ctx, types.NamespacedName{
-				Name: utils.FormatNodeName(httpNodeID, env),
-			}, vnode)
-			return errors.IsNotFound(err)
-		}, time.Second*50, time.Second).Should(BeTrue())
-
-	})
-
 })

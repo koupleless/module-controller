@@ -91,7 +91,7 @@ var _ = Describe("Base Lifecycle Test", func() {
 		})
 
 		It("base unreachable finally exit", func() {
-			mockMqttBase.Unreachable()
+			mockMqttBase.reachable = false
 			Eventually(func() bool {
 				vnode := &v1.Node{}
 
@@ -100,6 +100,26 @@ var _ = Describe("Base Lifecycle Test", func() {
 				}, vnode)
 				return errors.IsNotFound(err)
 			}, time.Minute*2, time.Second).Should(BeTrue())
+		})
+
+		It("reachable base should become a ready vnode eventually", func() {
+			time.Sleep(time.Second)
+			mockMqttBase.reachable = true
+			go mockMqttBase.Start(ctx, clientID)
+			vnode := &v1.Node{}
+			Eventually(func() bool {
+				err := k8sClient.Get(ctx, types.NamespacedName{
+					Name: utils.FormatNodeName(mqttNodeID, env),
+				}, vnode)
+				vnodeReady := false
+				for _, cond := range vnode.Status.Conditions {
+					if cond.Type == v1.NodeReady {
+						vnodeReady = cond.Status == v1.ConditionTrue
+						break
+					}
+				}
+				return err == nil && vnodeReady
+			}, time.Second*50, time.Second).Should(BeTrue())
 		})
 
 		It("base offline with deactive message and finally exit", func() {
