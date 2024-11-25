@@ -125,7 +125,7 @@ var _ = BeforeSuite(func() {
 	vnodeController, err := vnode_controller.NewVNodeController(&model.BuildVNodeControllerConfig{
 		ClientID:       clientID,
 		Env:            env,
-		VPodIdentity:   model2.ComponentModule,
+		VPodType:       model2.ComponentModule,
 		VNodeWorkerNum: 4,
 	}, &mqttTunnel)
 	Expect(err).ToNot(HaveOccurred())

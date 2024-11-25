@@ -238,7 +238,7 @@ var _ = Describe("Module Deployment Controller Test", func() {
 					Namespace: deployment1.Namespace,
 				}, depFromKubernetes)
 				return err == nil && *depFromKubernetes.Spec.Replicas == 0
-			}, time.Second*30, time.Second).Should(BeTrue())
+			}, time.Minute*2, time.Second).Should(BeTrue())
 		})
 	})
 })

@@ -102,6 +102,9 @@ func main() {
 
 	// Initialize controller manager
 	kubeConfig := config.GetConfigOrDie()
+	// TODO: should support to set from parameter
+	kubeConfig.QPS = 100
+	kubeConfig.Burst = 200
 	ctrl.SetLogger(logr.New(log2.NullLogSink{}))
 
 	mgr, err := manager.New(kubeConfig, manager.Options{
@@ -123,7 +126,7 @@ func main() {
 	rcc := vkModel.BuildVNodeControllerConfig{
 		ClientID:         clientID,
 		Env:              env,
-		VPodIdentity:     model.ComponentModule,
+		VPodType:         model.ComponentModule,
 		IsCluster:        isCluster,
 		WorkloadMaxLevel: workloadMaxLevel,
 		VNodeWorkerNum:   vnodeWorkerNum,
