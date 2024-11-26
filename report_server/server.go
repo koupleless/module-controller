@@ -4,13 +4,13 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
+	"github.com/koupleless/module_controller/common/zaplogger"
 	"io/ioutil"
 	"log"
 	"net/http"
 	"strings"
 
 	"github.com/koupleless/virtual-kubelet/common/utils"
-	"github.com/sirupsen/logrus"
 )
 
 // LogRequest represents a log request with various fields
@@ -109,6 +109,6 @@ func InitReportServer() {
 	http.HandleFunc("/log", logHandler)
 	log.Println("Starting server on :8080")
 	if err := http.ListenAndServe(":8080", nil); err != nil {
-		logrus.Errorf("Server failed: %v", err)
+		zaplogger.GetLogger().Error(err, "Server failed: %v")
 	}
 }

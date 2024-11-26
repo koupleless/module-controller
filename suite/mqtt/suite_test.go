@@ -6,13 +6,13 @@ import (
 	model2 "github.com/koupleless/module_controller/common/model"
 	"github.com/koupleless/module_controller/controller/module_deployment_controller"
 	"github.com/koupleless/module_controller/module_tunnels/koupleless_mqtt_tunnel"
-	"github.com/koupleless/virtual-kubelet/common/log"
-	logruslogger "github.com/koupleless/virtual-kubelet/common/log/logrus"
 	"github.com/koupleless/virtual-kubelet/model"
 	"github.com/koupleless/virtual-kubelet/vnode_controller"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/sirupsen/logrus"
+	"github.com/virtual-kubelet/virtual-kubelet/log"
+	logruslogger "github.com/virtual-kubelet/virtual-kubelet/log/logrus"
 	"github.com/wind-c/comqtt/v2/mqtt"
 	"github.com/wind-c/comqtt/v2/mqtt/hooks/auth"
 	"github.com/wind-c/comqtt/v2/mqtt/listeners"
@@ -112,9 +112,8 @@ var _ = BeforeSuite(func() {
 
 	Expect(err).ToNot(HaveOccurred())
 
-	mqttTunnel = koupleless_mqtt_tunnel.NewMqttTunnel(env, k8sManager.GetClient(), moduleDeploymentController)
-
-	err = mqttTunnel.Start(ctx, clientID, env)
+	mqttTunnel = koupleless_mqtt_tunnel.NewMqttTunnel(ctx, env, k8sManager.GetClient(), moduleDeploymentController)
+	err = mqttTunnel.Start(clientID, env)
 	if err != nil {
 		log.G(ctx).WithError(err).Error("failed to start tunnel", mqttTunnel.Key())
 		panic(fmt.Sprintf("failed to start tunnel %s", mqttTunnel.Key()))

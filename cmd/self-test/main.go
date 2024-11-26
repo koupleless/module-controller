@@ -12,7 +12,7 @@ import (
 	"syscall"
 	"time"
 
-	"github.com/koupleless/virtual-kubelet/common/log"
+	"github.com/virtual-kubelet/virtual-kubelet/log"
 	v1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/labels"

@@ -18,13 +18,12 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"github.com/go-logr/logr"
+	"github.com/koupleless/module_controller/common/zaplogger"
 	"github.com/koupleless/virtual-kubelet/vnode_controller"
 	"os"
 	"os/signal"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/healthz"
-	log2 "sigs.k8s.io/controller-runtime/pkg/log"
 	"strconv"
 	"syscall"
 
@@ -34,8 +33,6 @@ import (
 	"github.com/koupleless/module_controller/module_tunnels/koupleless_http_tunnel"
 	"github.com/koupleless/module_controller/module_tunnels/koupleless_mqtt_tunnel"
 	"github.com/koupleless/module_controller/report_server"
-	"github.com/koupleless/virtual-kubelet/common/log"
-	logruslogger "github.com/koupleless/virtual-kubelet/common/log/logrus"
 	"github.com/koupleless/virtual-kubelet/common/trace"
 	"github.com/koupleless/virtual-kubelet/common/trace/opencensus"
 	"github.com/koupleless/virtual-kubelet/common/tracker"
@@ -43,6 +40,8 @@ import (
 	vkModel "github.com/koupleless/virtual-kubelet/model"
 	"github.com/koupleless/virtual-kubelet/tunnel"
 	"github.com/sirupsen/logrus"
+	"github.com/virtual-kubelet/virtual-kubelet/log"
+	logruslogger "github.com/virtual-kubelet/virtual-kubelet/log/logrus"
 	"sigs.k8s.io/controller-runtime/pkg/cache"
 	"sigs.k8s.io/controller-runtime/pkg/client/config"
 	"sigs.k8s.io/controller-runtime/pkg/manager"
@@ -79,24 +78,21 @@ func main() {
 	clientID := utils.GetEnv("CLIENT_ID", uuid.New().String())
 	env := utils.GetEnv("ENV", "dev")
 
-	ctx = log.WithLogger(ctx, log.G(ctx).WithFields(log.Fields{
-		"clientID":   clientID,
-		"env":        env,
-		"is_cluster": true,
-	}))
+	zlogger := zaplogger.GetLogger()
+	ctx = zaplogger.WithLogger(ctx, zlogger)
 
 	// Parse configuration with defaults
 	isCluster := utils.GetEnv("IS_CLUSTER", "") == "true"
 	workloadMaxLevel, err := strconv.Atoi(utils.GetEnv("WORKLOAD_MAX_LEVEL", "3"))
 
 	if err != nil {
-		log.G(ctx).WithError(err).Error("failed to parse WORKLOAD_MAX_LEVEL, will be set to 3 default")
+		zlogger.Error(err, "failed to parse WORKLOAD_MAX_LEVEL, will be set to 3 default")
 		workloadMaxLevel = 3
 	}
 
 	vnodeWorkerNum, err := strconv.Atoi(utils.GetEnv("VNODE_WORKER_NUM", "8"))
 	if err != nil {
-		log.G(ctx).WithError(err).Error("failed to parse VNODE_WORKER_NUM, will be set to 8 default")
+		zlogger.Error(err, "failed to parse VNODE_WORKER_NUM, will be set to 8 default")
 		vnodeWorkerNum = 8
 	}
 
@@ -105,8 +101,9 @@ func main() {
 	// TODO: should support to set from parameter
 	kubeConfig.QPS = 100
 	kubeConfig.Burst = 200
-	ctrl.SetLogger(logr.New(log2.NullLogSink{}))
 
+	zlogger.Info("start to start manager")
+	ctrl.SetLogger(zlogger)
 	mgr, err := manager.New(kubeConfig, manager.Options{
 		Cache:                  cache.Options{},
 		HealthProbeBindAddress: ":8081",
@@ -116,7 +113,7 @@ func main() {
 	})
 
 	if err != nil {
-		log.G(ctx).Error(err, "unable to set up overall controller manager")
+		zlogger.Error(err, "unable to set up overall controller manager")
 		os.Exit(1)
 	}
 
@@ -134,13 +131,13 @@ func main() {
 
 	mdc, err := module_deployment_controller.NewModuleDeploymentController(env)
 	if err != nil {
-		log.G(ctx).Error(err, "unable to set up module_deployment_controller")
+		zlogger.Error(err, "unable to set up module_deployment_controller")
 		return
 	}
 
 	err = mdc.SetupWithManager(ctx, mgr)
 	if err != nil {
-		log.G(ctx).WithError(err).Error("unable to setup vnode controller")
+		zlogger.Error(err, "unable to setup module_deployment_controller")
 		return
 	}
 
@@ -148,13 +145,13 @@ func main() {
 
 	vc, err := vnode_controller.NewVNodeController(&rcc, tunnel)
 	if err != nil {
-		log.G(ctx).Error(err, "unable to set up VNodeController")
+		zlogger.Error(err, "unable to set up VNodeController")
 		return
 	}
 
 	err = vc.SetupWithManager(ctx, mgr)
 	if err != nil {
-		log.G(ctx).WithError(err).Error("unable to setup vnode controller")
+		zlogger.Error(err, "unable to setup vnode controller")
 		return
 	}
 
@@ -176,12 +173,13 @@ func main() {
 
 func startTunnels(ctx context.Context, clientId string, env string, mgr manager.Manager,
 	moduleDeploymentController *module_deployment_controller.ModuleDeploymentController) tunnel.Tunnel {
+	zlogger := zaplogger.FromContext(ctx)
 	// Initialize tunnels based on configuration
 	tunnels := make([]tunnel.Tunnel, 0)
 
 	mqttTunnelEnable := utils.GetEnv("ENABLE_MQTT_TUNNEL", "false")
 	if mqttTunnelEnable == "true" {
-		mqttTl := koupleless_mqtt_tunnel.NewMqttTunnel(env, mgr.GetClient(), moduleDeploymentController)
+		mqttTl := koupleless_mqtt_tunnel.NewMqttTunnel(ctx, env, mgr.GetClient(), moduleDeploymentController)
 		tunnels = append(tunnels, &mqttTl)
 	}
 
@@ -194,7 +192,7 @@ func startTunnels(ctx context.Context, clientId string, env string, mgr manager.
 			httpTunnelListenPort = 7777
 		}
 
-		httpTl := koupleless_http_tunnel.NewHttpTunnel(env, mgr.GetClient(), moduleDeploymentController, httpTunnelListenPort)
+		httpTl := koupleless_http_tunnel.NewHttpTunnel(ctx, env, mgr.GetClient(), moduleDeploymentController, httpTunnelListenPort)
 		tunnels = append(tunnels, &httpTl)
 	}
 
@@ -202,12 +200,12 @@ func startTunnels(ctx context.Context, clientId string, env string, mgr manager.
 	successTunnelCount := 0
 	startFailedCount := 0
 	for _, t := range tunnels {
-		err := t.Start(ctx, clientId, env)
+		err := t.Start(clientId, env)
 		if err != nil {
-			log.G(ctx).WithError(err).Error("failed to start tunnel", t.Key())
+			zlogger.Error(err, "failed to start tunnel "+t.Key())
 			startFailedCount++
 		} else {
-			log.G(ctx).Info("Tunnel started: ", t.Key())
+			zlogger.Info("Tunnel started: " + t.Key())
 			successTunnelCount++
 		}
 	}

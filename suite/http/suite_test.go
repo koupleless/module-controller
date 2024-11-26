@@ -6,13 +6,13 @@ import (
 	model2 "github.com/koupleless/module_controller/common/model"
 	"github.com/koupleless/module_controller/controller/module_deployment_controller"
 	"github.com/koupleless/module_controller/module_tunnels/koupleless_http_tunnel"
-	"github.com/koupleless/virtual-kubelet/common/log"
-	logruslogger "github.com/koupleless/virtual-kubelet/common/log/logrus"
 	"github.com/koupleless/virtual-kubelet/model"
 	"github.com/koupleless/virtual-kubelet/vnode_controller"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/sirupsen/logrus"
+	"github.com/virtual-kubelet/virtual-kubelet/log"
+	logruslogger "github.com/virtual-kubelet/virtual-kubelet/log/logrus"
 	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes/scheme"
@@ -83,9 +83,9 @@ var _ = BeforeSuite(func() {
 
 	Expect(err).ToNot(HaveOccurred())
 
-	httpTunnel = koupleless_http_tunnel.NewHttpTunnel(env, k8sManager.GetClient(), moduleDeploymentController, 7777)
+	httpTunnel = koupleless_http_tunnel.NewHttpTunnel(ctx, env, k8sManager.GetClient(), moduleDeploymentController, 7777)
 
-	err = httpTunnel.Start(ctx, clientID, env)
+	err = httpTunnel.Start(clientID, env)
 	if err != nil {
 		log.G(ctx).WithError(err).Error("failed to start tunnel", httpTunnel.Key())
 		panic(fmt.Sprintf("failed to start tunnel %s", httpTunnel.Key()))
