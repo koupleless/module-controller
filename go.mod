@@ -10,11 +10,12 @@ require (
 	github.com/go-resty/resty/v2 v2.11.0
 	github.com/google/uuid v1.6.0
 	github.com/koupleless/arkctl v0.2.2
-	github.com/koupleless/virtual-kubelet v0.3.5-0.20241125132309-00fba45cbde1
+	github.com/koupleless/virtual-kubelet v0.3.5-0.20241126075206-2ab835c98a84
 	github.com/onsi/ginkgo/v2 v2.19.0
 	github.com/onsi/gomega v1.33.1
 	github.com/sirupsen/logrus v1.9.3
 	github.com/stretchr/testify v1.9.0
+	github.com/virtual-kubelet/virtual-kubelet v1.11.0
 	github.com/wind-c/comqtt/v2 v2.6.0
 	k8s.io/api v0.31.0
 	k8s.io/apimachinery v0.31.0

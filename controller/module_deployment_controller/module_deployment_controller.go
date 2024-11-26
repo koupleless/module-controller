@@ -3,14 +3,14 @@ package module_deployment_controller
 import (
 	"context"
 	"errors"
+	"fmt"
+	"github.com/koupleless/module_controller/common/zaplogger"
 	"github.com/koupleless/virtual-kubelet/common/tracker"
 	"github.com/koupleless/virtual-kubelet/common/utils"
-	"github.com/sirupsen/logrus"
 	errors2 "k8s.io/apimachinery/pkg/api/errors"
 	"sort"
 
 	"github.com/koupleless/module_controller/common/model"
-	"github.com/koupleless/virtual-kubelet/common/log"
 	vkModel "github.com/koupleless/virtual-kubelet/model"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
@@ -43,6 +43,7 @@ type ModuleDeploymentController struct {
 
 // Reconcile is the main reconciliation function for the controller.
 func (mdc *ModuleDeploymentController) Reconcile(ctx context.Context, request reconcile.Request) (reconcile.Result, error) {
+	zaplogger.FromContext(ctx).Info("Reconciling module deployment", "request", request)
 	// This function is a placeholder for actual reconciliation logic.
 	return reconcile.Result{}, nil
 }
@@ -58,17 +59,18 @@ func NewModuleDeploymentController(env string) (*ModuleDeploymentController, err
 
 // SetupWithManager sets up the controller with a manager.
 func (mdc *ModuleDeploymentController) SetupWithManager(ctx context.Context, mgr manager.Manager) (err error) {
+	logger := zaplogger.FromContext(ctx)
 	mdc.updateToken <- nil
 	mdc.client = mgr.GetClient()
 	mdc.cache = mgr.GetCache()
 
-	log.G(ctx).Info("Setting up module deployment controller")
+	logger.Info("Setting up module deployment controller")
 
 	c, err := controller.New("module-deployment-controller", mgr, controller.Options{
 		Reconciler: mdc,
 	})
 	if err != nil {
-		log.G(ctx).Error(err, "unable to set up module-deployment controller")
+		logger.Error(err, "unable to set up module-deployment controller")
 		return err
 	}
 
@@ -85,7 +87,7 @@ func (mdc *ModuleDeploymentController) SetupWithManager(ctx context.Context, mgr
 	go func() {
 		syncd := mdc.cache.WaitForCacheSync(ctx)
 		if !syncd {
-			log.G(ctx).Error("failed to wait for cache sync")
+			logger.Error(nil, "failed to wait for cache sync")
 			return
 		}
 		// init
@@ -131,12 +133,12 @@ func (mdc *ModuleDeploymentController) SetupWithManager(ctx context.Context, mgr
 			mdc.vnodeDeleteHandler(ctx, e.Object)
 		},
 		GenericFunc: func(ctx context.Context, e event.TypedGenericEvent[*corev1.Node], w workqueue.TypedRateLimitingInterface[reconcile.Request]) {
-			log.G(ctx).WithField("node_name", e.Object.Name).Warn("Generic func call")
+			logger.WithValues("node_name", e.Object.Name).Info("Generic func call")
 		},
 	}
 
 	if err = c.Watch(source.Kind(mgr.GetCache(), &corev1.Node{}, vnodeEventHandler, &VNodePredicates{LabelSelector: vnodeSelector})); err != nil {
-		log.G(ctx).WithError(err).Error("unable to watch nodes")
+		logger.Error(err, "unable to watch nodes")
 		return err
 	}
 
@@ -150,22 +152,22 @@ func (mdc *ModuleDeploymentController) SetupWithManager(ctx context.Context, mgr
 		DeleteFunc: func(ctx context.Context, e event.TypedDeleteEvent[*appsv1.Deployment], w workqueue.TypedRateLimitingInterface[reconcile.Request]) {
 		},
 		GenericFunc: func(ctx context.Context, e event.TypedGenericEvent[*appsv1.Deployment], w workqueue.TypedRateLimitingInterface[reconcile.Request]) {
-			log.G(ctx).WithField("deployment_name", e.Object.Name).Warn("Generic func call")
+			logger.WithValues("deployment_name", e.Object.Name).Info("Generic func call")
 		},
 	}
 
 	if err = c.Watch(source.Kind(mgr.GetCache(), &appsv1.Deployment{}, &deploymentEventHandler, &ModuleDeploymentPredicates{LabelSelector: deploymentSelector})); err != nil {
-		log.G(ctx).WithError(err).Error("unable to watch module Deployments")
+		logger.Error(err, "unable to watch module Deployments")
 		return err
 	}
 
-	log.G(ctx).Info("module-deployment controller ready")
-
+	logger.Info("module-deployment controller ready")
 	return nil
 }
 
 // QueryContainerBaseline queries the baseline for a given container.
-func (mdc *ModuleDeploymentController) QueryContainerBaseline(req model.QueryBaselineRequest) []corev1.Container {
+func (mdc *ModuleDeploymentController) QueryContainerBaseline(ctx context.Context, req model.QueryBaselineRequest) []corev1.Container {
+	logger := zaplogger.FromContext(ctx)
 	labelMap := map[string]string{
 		// TODO: should add those label to deployments by module controller
 		vkModel.LabelKeyOfEnv: mdc.env,
@@ -175,7 +177,7 @@ func (mdc *ModuleDeploymentController) QueryContainerBaseline(req model.QueryBas
 		LabelSelector: labels.SelectorFromSet(labelMap),
 	})
 	if err != nil {
-		log.G(context.Background()).WithError(err).Error("failed to list deployments")
+		logger.Error(err, "failed to list deployments")
 		return []corev1.Container{}
 	}
 
@@ -185,15 +187,17 @@ func (mdc *ModuleDeploymentController) QueryContainerBaseline(req model.QueryBas
 	})
 	// record last version of biz model with same name
 	containers := make([]corev1.Container, 0)
+	containerNames := []string{}
 	for _, deployment := range allDeploymentList.Items {
 		clusterName := getClusterNameFromDeployment(&deployment)
 		if clusterName != "" && clusterName != req.ClusterName {
 			for _, container := range deployment.Spec.Template.Spec.Containers {
 				containers = append(containers, container)
+				containerNames = append(containerNames, utils.GetBizUniqueKey(&container))
 			}
 		}
 	}
-	log.G(context.Background()).Infof("query base line got: %", containers)
+	logger.Info(fmt.Sprintf("query base line got: %s", containerNames))
 	return containers
 }
 
@@ -217,11 +221,12 @@ func (mdc *ModuleDeploymentController) vnodeDeleteHandler(ctx context.Context, v
 }
 
 func (mdc *ModuleDeploymentController) GetRelatedDeploymentsByNode(ctx context.Context, node *corev1.Node) []appsv1.Deployment {
+	logger := zaplogger.FromContext(ctx)
 	matchedDeployments := make([]appsv1.Deployment, 0)
 
 	clusterName := getClusterNameFromNode(node)
 	if clusterName == "" {
-		logrus.Warnf("failed to get cluster name of node %s", node.Name)
+		logger.Info(fmt.Sprintf("failed to get cluster name of node %s", node.Name))
 		return matchedDeployments
 	}
 
@@ -233,7 +238,7 @@ func (mdc *ModuleDeploymentController) GetRelatedDeploymentsByNode(ctx context.C
 	})
 
 	if err != nil {
-		logrus.WithError(err).Error("failed to list deployments")
+		logger.Error(err, "failed to list deployments")
 		return matchedDeployments
 	}
 
@@ -267,6 +272,7 @@ func (mdc *ModuleDeploymentController) deploymentUpdateHandler(ctx context.Conte
 
 // updateDeploymentReplicas updates the replicas of deployments based on node count.
 func (mdc *ModuleDeploymentController) updateDeploymentReplicas(ctx context.Context, deployments []appsv1.Deployment) {
+	logger := zaplogger.FromContext(ctx)
 
 	// TODO Implement this function.
 	<-mdc.updateToken
@@ -286,13 +292,13 @@ func (mdc *ModuleDeploymentController) updateDeploymentReplicas(ctx context.Cont
 
 		clusterName := getClusterNameFromDeployment(&deployment)
 		if clusterName == "" {
-			logrus.Warnf("failed to get cluster name of deployment %s, skip to update replicas", deployment.Name)
+			logger.Info(fmt.Sprintf("failed to get cluster name of deployment %s, skip to update replicas", deployment.Name))
 			continue
 		}
 
 		sameClusterNodeCount, err := mdc.getReadyNodeCount(ctx, clusterName)
 		if err != nil {
-			logrus.WithError(err).Errorf("failed to get nodes of cluster %s, skip to update relicas", clusterName)
+			logger.Error(err, fmt.Sprintf("failed to get nodes of cluster %s, skip to update relicas", clusterName))
 			continue
 		}
 
@@ -301,7 +307,7 @@ func (mdc *ModuleDeploymentController) updateDeploymentReplicas(ctx context.Cont
 				return mdc.updateDeploymentReplicasOfKubernetes(ctx, sameClusterNodeCount, deployment)
 			})
 			if err != nil {
-				logrus.WithError(err).Errorf("failed to update deployment replicas of %s", deployment.Name)
+				logger.Error(err, fmt.Sprintf("failed to update deployment replicas of %s", deployment.Name))
 			}
 		}
 	}
@@ -343,13 +349,14 @@ func getClusterNameFromNode(node *corev1.Node) string {
 }
 
 func (mdc *ModuleDeploymentController) getReadyNodeCount(ctx context.Context, clusterName string) (int, error) {
+	logger := zaplogger.FromContext(ctx)
 	nodeList := &corev1.NodeList{}
 	err := mdc.cache.List(ctx, nodeList, &client.ListOptions{
 		LabelSelector: labels.SelectorFromSet(map[string]string{vkModel.LabelKeyOfVNodeClusterName: clusterName}),
 	})
 
 	if err != nil {
-		logrus.WithError(err).Errorf("failed to list nodes of cluster %s", clusterName)
+		logger.Error(err, fmt.Sprintf("failed to list nodes of cluster %s", clusterName))
 		return 0, err
 	}
 

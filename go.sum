@@ -94,8 +94,10 @@ github.com/kisielk/errcheck v1.5.0/go.mod h1:pFxgyoBC7bSaBwPgfKdkLd5X25qrDl4LWUI
 github.com/kisielk/gotool v1.0.0/go.mod h1:XhKaO+MFFWcvkIS/tQcRk01m1F5IRFswLeQ+oQHNcck=
 github.com/koupleless/arkctl v0.2.2 h1:mSx6YMpWAz3+1HEX9ttSkblqgQU1cMSCV+Brsa5K3u8=
 github.com/koupleless/arkctl v0.2.2/go.mod h1:nbnAiPEv7x/ZDQ+QsjFWkqwxMDofGmqnFPHa3XpXHyE=
-github.com/koupleless/virtual-kubelet v0.3.5-0.20241125132309-00fba45cbde1 h1:9mg6otRLrFkGDI4LTlpBaRqQhKRy91tXA1puoEM6nT8=
-github.com/koupleless/virtual-kubelet v0.3.5-0.20241125132309-00fba45cbde1/go.mod h1:q9EkakXgR7FU0BNGbHbOLpwxM7ufvpROCDHwWRJolQU=
+github.com/koupleless/virtual-kubelet v0.3.5-0.20241126074954-da5abdc424e0 h1:9fuCg4fQkQUizZDUHJEyOI9MOJI2MX4xXoXod8Pn8rA=
+github.com/koupleless/virtual-kubelet v0.3.5-0.20241126074954-da5abdc424e0/go.mod h1:5fQ0uI9egbYDMxgUE0niS4agDTssIOCjq5wyO0ALNaU=
+github.com/koupleless/virtual-kubelet v0.3.5-0.20241126075206-2ab835c98a84 h1:BBeOIL7KsNNCbpGP8kR3ZIuK/iI7ci8MkVW2UKqTjG4=
+github.com/koupleless/virtual-kubelet v0.3.5-0.20241126075206-2ab835c98a84/go.mod h1:5fQ0uI9egbYDMxgUE0niS4agDTssIOCjq5wyO0ALNaU=
 github.com/kr/pretty v0.2.1/go.mod h1:ipq/a2n7PKx3OHsz4KJII5eveXtPO4qwEXGdVfWzfnI=
 github.com/kr/pretty v0.3.1 h1:flRD4NNwYAUpkphVc1HcthR4KEIFJ65n8Mw5qdRn3LE=
 github.com/kr/pretty v0.3.1/go.mod h1:hoEshYVHaxMs3cyo3Yncou5ZscifuDolrwPKZanG3xk=
@@ -150,6 +152,8 @@ github.com/stretchr/testify v1.8.0/go.mod h1:yNjHg4UonilssWZ8iaSj1OCr/vHnekPRkoO
 github.com/stretchr/testify v1.8.1/go.mod h1:w2LPCIKwWwSfY2zedu0+kehJoqGctiVI29o6fzry7u4=
 github.com/stretchr/testify v1.9.0 h1:HtqpIVDClZ4nwg75+f6Lvsy/wHu+3BoSGCbBAcpTsTg=
 github.com/stretchr/testify v1.9.0/go.mod h1:r2ic/lqez/lEtzL7wO/rwa5dbSLXVDPFyf8C91i36aY=
+github.com/virtual-kubelet/virtual-kubelet v1.11.0 h1:LOMcZQfP083xmYH9mYtyHAR+ybFbK1uMaRA+EtDcd1I=
+github.com/virtual-kubelet/virtual-kubelet v1.11.0/go.mod h1:WQfPHbIlzfhMNYkh6hFXF1ctGfNM8UJCYLYpLa/trxc=
 github.com/wind-c/comqtt/v2 v2.6.0 h1:huLdOwYDrwMTrEwH7+mSs1GftHZ/tDqJw8nOz3iX7kc=
 github.com/wind-c/comqtt/v2 v2.6.0/go.mod h1:6O4VilBrTQ/cNIcmIgNdMLCK9DTiLRxkal00t0DLN64=
 github.com/x448/float16 v0.8.4 h1:qLwI1I70+NjRFUR3zs1JPUCgaCXSh3SW62uAKT1mSBM=

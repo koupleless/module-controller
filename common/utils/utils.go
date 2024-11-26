@@ -3,6 +3,7 @@ package utils
 import (
 	"context"
 	"fmt"
+	"github.com/koupleless/module_controller/common/zaplogger"
 	"strconv"
 	"strings"
 	"time"
@@ -10,10 +11,8 @@ import (
 	"github.com/koupleless/arkctl/common/fileutil"
 	"github.com/koupleless/arkctl/v1/service/ark"
 	"github.com/koupleless/module_controller/common/model"
-	"github.com/koupleless/virtual-kubelet/common/log"
 	"github.com/koupleless/virtual-kubelet/common/utils"
 	vkModel "github.com/koupleless/virtual-kubelet/model"
-	"github.com/sirupsen/logrus"
 	corev1 "k8s.io/api/core/v1"
 	apiErrors "k8s.io/apimachinery/pkg/api/errors"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -187,7 +186,7 @@ func GetLatestState(state string, records []ark.ArkBizStateRecord) (time.Time, s
 		}
 		changeTime, err := time.Parse("2006-01-02 15:04:05", record.ChangeTime[:len(record.ChangeTime)-4])
 		if err != nil {
-			logrus.Errorf("failed to parse change time %s", record.ChangeTime)
+			zaplogger.GetLogger().Info(fmt.Sprintf("failed to parse change time %s", record.ChangeTime))
 			continue
 		}
 		if changeTime.UnixMilli() > latestStateTime.UnixMilli() {
@@ -204,18 +203,18 @@ func OnBaseUnreachable(ctx context.Context, nodeName string, k8sClient client.Cl
 	// base not ready, delete from api server
 	node := corev1.Node{}
 	err := k8sClient.Get(ctx, client.ObjectKey{Name: nodeName}, &node)
-	logger := log.G(ctx).WithField("nodeName", nodeName).WithField("func", "OnNodeNotReady")
+	logger := zaplogger.FromContext(ctx).WithValues("nodeName", nodeName, "func", "OnNodeNotReady")
 	if err == nil {
 		// delete node from api server
 		logger.Info("DeleteBaseNode")
 		deleteErr := k8sClient.Delete(ctx, &node)
 		if deleteErr != nil && !apiErrors.IsNotFound(err) {
-			logger.WithError(deleteErr).Info("delete base node failed")
+			logger.Error(deleteErr, "delete base node failed")
 		}
 	} else if apiErrors.IsNotFound(err) {
 		logger.Info("Node not found, skipping delete operation")
 	} else {
-		logger.WithError(err).Error("Failed to get node, cannot delete")
+		logger.Error(err, "Failed to get node, cannot delete")
 	}
 }
 
@@ -225,7 +224,7 @@ func ConvertBaseStatusFromNodeInfo(initData vkModel.NodeInfo) model.BaseStatus {
 
 	port, err := strconv.Atoi(portStr)
 	if err != nil {
-		logrus.Errorf("failed to parse port %s from node info", portStr)
+		zaplogger.GetLogger().Error(nil, fmt.Sprintf("failed to parse port %s from node info", portStr))
 		port = 1238
 	}
 

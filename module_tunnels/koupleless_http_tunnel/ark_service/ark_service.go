@@ -5,8 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-
-	"github.com/koupleless/virtual-kubelet/common/log"
+	"github.com/koupleless/module_controller/common/zaplogger"
 
 	"github.com/go-resty/resty/v2"
 )
@@ -20,6 +19,7 @@ func NewService() *Service {
 }
 
 func (h *Service) InstallBiz(ctx context.Context, req InstallBizRequest, baseIP string, arkletPort int) (response ArkResponse, err error) {
+	logger := zaplogger.FromContext(ctx)
 
 	resp, err := h.client.R().
 		SetContext(ctx).
@@ -27,18 +27,18 @@ func (h *Service) InstallBiz(ctx context.Context, req InstallBizRequest, baseIP 
 		Post(fmt.Sprintf("http://%s:%d/installBiz", baseIP, arkletPort))
 
 	if err != nil {
-		log.G(ctx).WithError(err).Errorf("installBiz request failed")
+		logger.Error(err, "installBiz request failed")
 		return
 	}
 
 	if resp == nil {
 		err = errors.New("received nil response from the server")
-		log.G(ctx).WithError(err).Errorf("installBiz request failed")
+		logger.Error(err, "installBiz request failed")
 		return
 	}
 
 	if err = json.Unmarshal(resp.Body(), &response); err != nil {
-		log.G(ctx).WithError(err).Errorf("Unmarshal InstallBiz response: %s", resp.Body())
+		logger.Error(err, fmt.Sprintf("Unmarshal InstallBiz response: %s", resp.Body()))
 		return
 	}
 
@@ -46,6 +46,7 @@ func (h *Service) InstallBiz(ctx context.Context, req InstallBizRequest, baseIP 
 }
 
 func (h *Service) UninstallBiz(ctx context.Context, req UninstallBizRequest, baseIP string, arkletPort int) (response ArkResponse, err error) {
+	logger := zaplogger.FromContext(ctx)
 
 	resp, err := h.client.R().
 		SetContext(ctx).
@@ -53,18 +54,18 @@ func (h *Service) UninstallBiz(ctx context.Context, req UninstallBizRequest, bas
 		Post(fmt.Sprintf("http://%s:%d/uninstallBiz", baseIP, arkletPort))
 
 	if err != nil {
-		log.G(ctx).WithError(err).Errorf("uninstall request failed")
+		logger.Error(err, "uninstall request failed")
 		return
 	}
 
 	if resp == nil {
 		err = errors.New("received nil response from the server")
-		log.G(ctx).WithError(err).Errorf("uninstall request failed")
+		logger.Error(err, "uninstall request failed")
 		return
 	}
 
 	if err = json.Unmarshal(resp.Body(), &response); err != nil {
-		log.G(ctx).WithError(err).Errorf("Unmarshal UnInstallBiz response: %s", resp.Body())
+		logger.Error(err, fmt.Sprintf("Unmarshal UnInstallBiz response: %s", resp.Body()))
 		return
 	}
 
@@ -72,6 +73,7 @@ func (h *Service) UninstallBiz(ctx context.Context, req UninstallBizRequest, bas
 }
 
 func (h *Service) QueryAllBiz(ctx context.Context, baseIP string, port int) (response QueryAllBizResponse, err error) {
+	logger := zaplogger.FromContext(ctx)
 
 	resp, err := h.client.R().
 		SetContext(ctx).
@@ -79,18 +81,18 @@ func (h *Service) QueryAllBiz(ctx context.Context, baseIP string, port int) (res
 		Post(fmt.Sprintf("http://%s:%d/queryAllBiz", baseIP, port))
 
 	if err != nil {
-		log.G(ctx).WithError(err).Errorf("queryAllBiz request failed")
+		logger.Error(err, "queryAllBiz request failed")
 		return
 	}
 
 	if resp == nil {
 		err = errors.New("received nil response from the server")
-		log.G(ctx).WithError(err).Errorf("queryAllBiz request failed")
+		logger.Error(err, "queryAllBiz request failed")
 		return
 	}
 
 	if err = json.Unmarshal(resp.Body(), &response); err != nil {
-		log.G(ctx).WithError(err).Errorf("Unmarshal QueryAllBiz response: %s", resp.Body())
+		logger.Error(err, fmt.Sprintf("Unmarshal QueryAllBiz response: %s", resp.Body()))
 		return
 	}
 
@@ -98,6 +100,7 @@ func (h *Service) QueryAllBiz(ctx context.Context, baseIP string, port int) (res
 }
 
 func (h *Service) Health(ctx context.Context, baseIP string, arkletPort int) (response HealthResponse, err error) {
+	logger := zaplogger.FromContext(ctx)
 
 	resp, err := h.client.R().
 		SetContext(ctx).
@@ -105,18 +108,18 @@ func (h *Service) Health(ctx context.Context, baseIP string, arkletPort int) (re
 		Post(fmt.Sprintf("http://%s:%d/health", baseIP, arkletPort))
 
 	if err != nil {
-		log.G(ctx).WithError(err).Errorf("health request failed")
+		logger.Error(err, "health request failed")
 		return
 	}
 
 	if resp == nil {
 		err = errors.New("received nil response from the server")
-		log.G(ctx).WithError(err).Errorf("health request failed")
+		logger.Error(err, "health request failed")
 		return
 	}
 
 	if err = json.Unmarshal(resp.Body(), &response); err != nil {
-		log.G(ctx).WithError(err).Errorf("Unmarshal Health response: %s", resp.Body())
+		logger.Error(err, fmt.Sprintf("Unmarshal Health response: %s", resp.Body()))
 		return
 	}
 

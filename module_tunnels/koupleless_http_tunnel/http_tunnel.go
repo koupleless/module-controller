@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"github.com/koupleless/module_controller/common/zaplogger"
 	"github.com/koupleless/module_controller/controller/module_deployment_controller"
 	utils2 "github.com/koupleless/virtual-kubelet/common/utils"
 	"net/http"
@@ -16,10 +17,8 @@ import (
 	"github.com/koupleless/module_controller/common/model"
 	"github.com/koupleless/module_controller/common/utils"
 	"github.com/koupleless/module_controller/module_tunnels/koupleless_http_tunnel/ark_service"
-	"github.com/koupleless/virtual-kubelet/common/log"
 	vkModel "github.com/koupleless/virtual-kubelet/model"
 	"github.com/koupleless/virtual-kubelet/tunnel"
-	"github.com/sirupsen/logrus"
 	corev1 "k8s.io/api/core/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
@@ -27,6 +26,7 @@ import (
 var _ tunnel.Tunnel = &HttpTunnel{}
 
 type HttpTunnel struct {
+	ctx context.Context
 	sync.Mutex
 
 	arkService *ark_service.Service
@@ -52,8 +52,9 @@ type HttpTunnel struct {
 	moduleDeploymentController *module_deployment_controller.ModuleDeploymentController
 }
 
-func NewHttpTunnel(env string, kubeClient client.Client, moduleDeploymentController *module_deployment_controller.ModuleDeploymentController, port int) HttpTunnel {
+func NewHttpTunnel(ctx context.Context, env string, kubeClient client.Client, moduleDeploymentController *module_deployment_controller.ModuleDeploymentController, port int) HttpTunnel {
 	return HttpTunnel{
+		ctx:                        ctx,
 		env:                        env,
 		kubeClient:                 kubeClient,
 		moduleDeploymentController: moduleDeploymentController,
@@ -72,7 +73,7 @@ func (h *HttpTunnel) GetBizUniqueKey(container *corev1.Container) string {
 }
 
 // RegisterNode is called when a new node starts
-func (h *HttpTunnel) RegisterNode(ctx context.Context, initData vkModel.NodeInfo) {
+func (h *HttpTunnel) RegisterNode(initData vkModel.NodeInfo) {
 	h.Lock()
 	defer h.Unlock()
 
@@ -85,7 +86,7 @@ func (h *HttpTunnel) RegisterNode(ctx context.Context, initData vkModel.NodeInfo
 }
 
 // UnRegisterNode is called when a node stops
-func (h *HttpTunnel) UnRegisterNode(ctx context.Context, nodeName string) {
+func (h *HttpTunnel) UnRegisterNode(nodeName string) {
 	h.Lock()
 	defer h.Unlock()
 	nodeID := utils2.ExtractNodeIDFromNodeName(nodeName)
@@ -93,8 +94,8 @@ func (h *HttpTunnel) UnRegisterNode(ctx context.Context, nodeName string) {
 }
 
 // OnNodeNotReady is called when a node is not ready
-func (h *HttpTunnel) OnNodeNotReady(ctx context.Context, nodeName string) {
-	utils.OnBaseUnreachable(ctx, nodeName, h.kubeClient)
+func (h *HttpTunnel) OnNodeNotReady(nodeName string) {
+	utils.OnBaseUnreachable(h.ctx, nodeName, h.kubeClient)
 }
 
 // Key returns the key of the tunnel
@@ -114,7 +115,7 @@ func (h *HttpTunnel) RegisterCallback(onBaseDiscovered tunnel.OnBaseDiscovered, 
 }
 
 // Start starts the tunnel
-func (h *HttpTunnel) Start(ctx context.Context, clientID, env string) (err error) {
+func (h *HttpTunnel) Start(clientID, env string) (err error) {
 	h.onlineNode = make(map[string]bool)
 	h.nodeIdToBaseStatusMap = make(map[string]model.BaseStatus)
 	h.env = env
@@ -124,14 +125,14 @@ func (h *HttpTunnel) Start(ctx context.Context, clientID, env string) (err error
 	h.ready = true
 
 	// add base discovery
-	go h.startBaseDiscovery(ctx)
+	go h.startBaseDiscovery(h.ctx)
 
 	return
 }
 
 // startBaseDiscovery starts the base discovery server
 func (h *HttpTunnel) startBaseDiscovery(ctx context.Context) {
-	logger := log.G(ctx)
+	logger := zaplogger.FromContext(ctx)
 	// start a simple http server to handle base discovery, exit when ctx done
 	mux := http.NewServeMux()
 	server := &http.Server{
@@ -149,7 +150,7 @@ func (h *HttpTunnel) startBaseDiscovery(ctx context.Context) {
 		heartbeatData := model.BaseStatus{}
 		err := json.NewDecoder(r.Body).Decode(&heartbeatData)
 		if err != nil {
-			logger.WithError(err).Error("failed to unmarshal heartbeat data")
+			logger.Error(err, "failed to unmarshal heartbeat data")
 			w.WriteHeader(http.StatusBadRequest)
 			w.Write([]byte(err.Error()))
 			return
@@ -172,14 +173,14 @@ func (h *HttpTunnel) startBaseDiscovery(ctx context.Context) {
 		baseMetadata := model.BaseMetadata{}
 		err := json.NewDecoder(r.Body).Decode(&baseMetadata)
 		if err != nil {
-			logger.WithError(err).Error("failed to unmarshal baseMetadata data")
+			logger.Error(err, "failed to unmarshal baseMetadata data")
 			w.WriteHeader(http.StatusBadRequest)
 			w.Write([]byte(err.Error()))
 			return
 		}
 
 		baselineBizs := make([]ark.BizModel, 0)
-		baseline := h.moduleDeploymentController.QueryContainerBaseline(utils.ConvertBaseMetadataToBaselineQuery(baseMetadata))
+		baseline := h.moduleDeploymentController.QueryContainerBaseline(h.ctx, utils.ConvertBaseMetadataToBaselineQuery(baseMetadata))
 		for _, container := range baseline {
 			baselineBizs = append(baselineBizs, utils.TranslateCoreV1ContainerToBizModel(&container))
 		}
@@ -193,17 +194,17 @@ func (h *HttpTunnel) startBaseDiscovery(ctx context.Context) {
 
 	go func() {
 		if err := server.ListenAndServe(); err != nil {
-			logger.WithError(err).Error("error starting http base discovery server")
+			logger.Error(err, "error starting http base discovery server")
 		}
 	}()
 
-	logger.Infof("http base discovery server started, listening on port %d", h.port)
+	logger.Info(fmt.Sprintf("http base discovery server started, listening on port %d", h.port))
 
 	defer func() {
 		shutdownCtx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 		defer cancel()
 		if err := server.Shutdown(shutdownCtx); err != nil {
-			logger.WithError(err).Error("error shutting down http server")
+			logger.Error(err, "error shutting down http server")
 		}
 	}()
 	<-ctx.Done()
@@ -231,6 +232,7 @@ func (h *HttpTunnel) allBizMsgCallback(nodeID string, data ark_service.QueryAllB
 
 // bizOperationResponseCallback is the callback function for business operation responses
 func (h *HttpTunnel) bizOperationResponseCallback(nodeID string, data model.BizOperationResponse) {
+	logger := zaplogger.FromContext(h.ctx)
 	if data.Response.Code == "SUCCESS" {
 		if data.Command == model.CommandInstallBiz {
 			// not update here, update in all biz response callback
@@ -238,7 +240,7 @@ func (h *HttpTunnel) bizOperationResponseCallback(nodeID string, data model.BizO
 		}
 	} else {
 		// operation failed, log
-		logrus.Errorf("biz operation failed: %s\n%s\n%s", data.Response.Message, data.Response.ErrorStackTrace, data.Response.Data.Message)
+		logger.Error(nil, "biz operation failed: %s\n%s\n%s", data.Response.Message, data.Response.ErrorStackTrace, data.Response.Data.Message)
 	}
 
 	h.onOneBizDataArrived(utils2.FormatNodeName(nodeID, h.env), vkModel.BizStatusData{
@@ -254,7 +256,7 @@ func (h *HttpTunnel) bizOperationResponseCallback(nodeID string, data model.BizO
 }
 
 // FetchHealthData fetches health data from the node
-func (h *HttpTunnel) FetchHealthData(ctx context.Context, nodeName string) error {
+func (h *HttpTunnel) FetchHealthData(nodeName string) error {
 	h.Lock()
 	nodeID := utils2.ExtractNodeIDFromNodeName(nodeName)
 	baseStatus, ok := h.nodeIdToBaseStatusMap[nodeID]
@@ -263,7 +265,7 @@ func (h *HttpTunnel) FetchHealthData(ctx context.Context, nodeName string) error
 		return errors.New("network info not found")
 	}
 
-	healthData, err := h.arkService.Health(ctx, baseStatus.LocalIP, baseStatus.Port)
+	healthData, err := h.arkService.Health(h.ctx, baseStatus.LocalIP, baseStatus.Port)
 
 	if err != nil {
 		return err
@@ -275,7 +277,7 @@ func (h *HttpTunnel) FetchHealthData(ctx context.Context, nodeName string) error
 }
 
 // QueryAllBizStatusData queries all container status data from the node
-func (h *HttpTunnel) QueryAllBizStatusData(ctx context.Context, nodeName string) error {
+func (h *HttpTunnel) QueryAllBizStatusData(nodeName string) error {
 	// add a signal to check
 	success := h.queryAllBizLock.TryLock()
 	if !success {
@@ -287,7 +289,7 @@ func (h *HttpTunnel) QueryAllBizStatusData(ctx context.Context, nodeName string)
 	defer func() {
 		h.queryAllBizLock.Unlock()
 		if h.queryAllBizDataOutdated {
-			go h.QueryAllBizStatusData(ctx, nodeName)
+			go h.QueryAllBizStatusData(nodeName)
 		}
 	}()
 
@@ -299,7 +301,7 @@ func (h *HttpTunnel) QueryAllBizStatusData(ctx context.Context, nodeName string)
 		return errors.New("network info not found")
 	}
 
-	allBizData, err := h.arkService.QueryAllBiz(ctx, baseStatus.LocalIP, baseStatus.Port)
+	allBizData, err := h.arkService.QueryAllBiz(h.ctx, baseStatus.LocalIP, baseStatus.Port)
 
 	if err != nil {
 		return err
@@ -311,7 +313,8 @@ func (h *HttpTunnel) QueryAllBizStatusData(ctx context.Context, nodeName string)
 }
 
 // StartBiz starts a container on the node
-func (h *HttpTunnel) StartBiz(ctx context.Context, nodeName, _ string, container *corev1.Container) error {
+func (h *HttpTunnel) StartBiz(nodeName, _ string, container *corev1.Container) error {
+
 	nodeID := utils2.ExtractNodeIDFromNodeName(nodeName)
 	h.Lock()
 	baseStatus, ok := h.nodeIdToBaseStatusMap[nodeID]
@@ -321,7 +324,7 @@ func (h *HttpTunnel) StartBiz(ctx context.Context, nodeName, _ string, container
 	}
 
 	bizModel := utils.TranslateCoreV1ContainerToBizModel(container)
-	logger := log.G(ctx).WithField("bizName", bizModel.BizName).WithField("bizVersion", bizModel.BizVersion)
+	logger := zaplogger.FromContext(h.ctx).WithValues("bizName", bizModel.BizName, "bizVersion", bizModel.BizVersion)
 	logger.Info("InstallModule")
 
 	// install current version
@@ -331,7 +334,7 @@ func (h *HttpTunnel) StartBiz(ctx context.Context, nodeName, _ string, container
 		BizVersion: bizModel.BizVersion,
 	}
 
-	response, err := h.arkService.InstallBiz(ctx, ark_service.InstallBizRequest{
+	response, err := h.arkService.InstallBiz(h.ctx, ark_service.InstallBizRequest{
 		BizModel: bizModel,
 	}, baseStatus.LocalIP, baseStatus.Port)
 
@@ -343,7 +346,7 @@ func (h *HttpTunnel) StartBiz(ctx context.Context, nodeName, _ string, container
 }
 
 // StopBiz shuts down a container on the node
-func (h *HttpTunnel) StopBiz(ctx context.Context, nodeName, _ string, container *corev1.Container) error {
+func (h *HttpTunnel) StopBiz(nodeName, _ string, container *corev1.Container) error {
 	nodeID := utils2.ExtractNodeIDFromNodeName(nodeName)
 	h.Lock()
 	baseStatus, ok := h.nodeIdToBaseStatusMap[nodeID]
@@ -353,7 +356,7 @@ func (h *HttpTunnel) StopBiz(ctx context.Context, nodeName, _ string, container 
 	}
 
 	bizModel := utils.TranslateCoreV1ContainerToBizModel(container)
-	logger := log.G(ctx).WithField("bizName", bizModel.BizName).WithField("bizVersion", bizModel.BizVersion)
+	logger := zaplogger.FromContext(h.ctx).WithValues("bizName", bizModel.BizName, "bizVersion", bizModel.BizVersion)
 	logger.Info("UninstallModule")
 
 	bizOperationResponse := model.BizOperationResponse{
@@ -362,7 +365,7 @@ func (h *HttpTunnel) StopBiz(ctx context.Context, nodeName, _ string, container 
 		BizVersion: bizModel.BizVersion,
 	}
 
-	response, err := h.arkService.UninstallBiz(ctx, ark_service.UninstallBizRequest{
+	response, err := h.arkService.UninstallBiz(h.ctx, ark_service.UninstallBizRequest{
 		BizModel: bizModel,
 	}, baseStatus.LocalIP, baseStatus.Port)
 

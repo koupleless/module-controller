@@ -4,11 +4,11 @@ import (
 	"crypto/tls"
 	"crypto/x509"
 	"fmt"
+	"github.com/koupleless/module_controller/common/zaplogger"
 	"os"
 	"time"
 
 	mqtt "github.com/eclipse/paho.mqtt.golang"
-	"github.com/sirupsen/logrus"
 )
 
 type ClientInitFunc func(*mqtt.ClientOptions) mqtt.Client
@@ -53,15 +53,15 @@ var DefaultMqttClientInitFunc ClientInitFunc = mqtt.NewClient
 
 // Default message handlers
 var defaultMessageHandler mqtt.MessageHandler = func(client mqtt.Client, msg mqtt.Message) {
-	logrus.Infof("Received message: %s from topic: %s\n", msg.Payload(), msg.Topic())
+	zaplogger.GetLogger().Info(fmt.Sprintf("Received message: %s from topic: %s\n", msg.Payload(), msg.Topic()))
 }
 
 var defaultOnConnectHandler mqtt.OnConnectHandler = func(client mqtt.Client) {
-	logrus.Info("Connected")
+	zaplogger.GetLogger().Info("Connected")
 }
 
 var defaultConnectionLostHandler mqtt.ConnectionLostHandler = func(client mqtt.Client, err error) {
-	logrus.Warnf("Connect lost: %v\n", err)
+	zaplogger.GetLogger().Info(fmt.Sprintf("Connection lost %v\n", err))
 }
 
 // newTlsConfig creates a TLS configuration using the client configuration
@@ -152,7 +152,7 @@ func (c *Client) Connect() error {
 
 // Pub publishes a message to a specified topic
 func (c *Client) Pub(topic string, qos byte, msg []byte) error {
-	logrus.Infof("Publishing message: %s to topic: %s\n", msg, topic)
+	zaplogger.GetLogger().Info(fmt.Sprintf("Publishing message: %s to topic: %s\n", msg, topic))
 	token := c.client.Publish(topic, qos, true, msg)
 	token.Wait()
 	return token.Error()
@@ -160,7 +160,7 @@ func (c *Client) Pub(topic string, qos byte, msg []byte) error {
 
 // Sub subscribes to a topic with a callback
 func (c *Client) Sub(topic string, qos byte, callBack mqtt.MessageHandler) error {
-	logrus.Infof("Subscribing to topic: %s\n", topic)
+	zaplogger.GetLogger().Info(fmt.Sprintf("Subscribing to topic: %s\n", topic))
 	token := c.client.Subscribe(topic, qos, callBack)
 	token.Wait()
 	return token.Error()
@@ -168,7 +168,7 @@ func (c *Client) Sub(topic string, qos byte, callBack mqtt.MessageHandler) error
 
 // UnSub unsubscribes from a topic
 func (c *Client) UnSub(topic string) error {
-	logrus.Infof("Unsubscribing from topic: %s\n", topic)
+	zaplogger.GetLogger().Info(fmt.Sprintf("Unsubscribing from topic: %s\n", topic))
 	c.client.Unsubscribe(topic)
 	return nil
 }
