@@ -130,7 +130,7 @@ func ConvertBaseMetadataToBaselineQuery(data model.BaseMetadata) model.QueryBase
 func TranslateBizInfosToContainerStatuses(data []ark.ArkBizInfo, changeTimestamp int64) []vkModel.BizStatusData {
 	ret := make([]vkModel.BizStatusData, 0)
 	for _, bizInfo := range data {
-		updatedTime, reason, message := GetLatestState(bizInfo.BizState, bizInfo.BizStateRecords)
+		updatedTime, reason, message := GetLatestState(bizInfo.BizStateRecords)
 		statusData := vkModel.BizStatusData{
 			Key:  GetBizIdentity(bizInfo.BizName, bizInfo.BizVersion),
 			Name: bizInfo.BizName,
@@ -166,36 +166,27 @@ func TranslateSimpleBizDataToBizInfos(data model.ArkSimpleAllBizInfoData) []ark.
 // TranslateSimpleBizDataToArkBizInfo converts simple biz data to ark biz info
 func TranslateSimpleBizDataToArkBizInfo(data model.ArkSimpleBizInfoData) *ark.ArkBizInfo {
 	return &ark.ArkBizInfo{
-		BizName:    data.Name,
-		BizVersion: data.Version,
-		BizState:   data.State,
+		BizName:         data.Name,
+		BizVersion:      data.Version,
+		BizState:        data.State,
+		BizStateRecords: []ark.ArkBizStateRecord{data.LatestStateRecord},
 	}
 }
 
 // GetLatestState finds the most recent state record and returns its details
-func GetLatestState(state string, records []ark.ArkBizStateRecord) (time.Time, string, string) {
-	latestStateTime := time.UnixMilli(0)
+func GetLatestState(records []ark.ArkBizStateRecord) (time.Time, string, string) {
+	latestStateTime := int64(0)
 	reason := ""
 	message := ""
 	for _, record := range records {
-		if record.State != state {
-			continue
-		}
-		if len(record.ChangeTime) < 3 {
-			continue
-		}
-		changeTime, err := time.Parse("2006-01-02 15:04:05", record.ChangeTime[:len(record.ChangeTime)-4])
-		if err != nil {
-			zaplogger.GetLogger().Info(fmt.Sprintf("failed to parse change time %s", record.ChangeTime))
-			continue
-		}
-		if changeTime.UnixMilli() > latestStateTime.UnixMilli() {
+		changeTime := record.ChangeTime
+		if changeTime > latestStateTime {
 			latestStateTime = changeTime
 			reason = record.Reason
 			message = record.Message
 		}
 	}
-	return latestStateTime, reason, message
+	return time.UnixMilli(latestStateTime), reason, message
 }
 
 // OnBaseUnreachable handles cleanup when a base becomes unreachable

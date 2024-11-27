@@ -351,7 +351,7 @@ func TestTranslateQueryAllBizDataToContainerStatuses(t *testing.T) {
 					BizStateRecords: []ark.ArkBizStateRecord{
 						{
 							State:      "ACTIVATED",
-							ChangeTime: "2022-01-01 00:00:00.000",
+							ChangeTime: 1234,
 							Reason:     "started",
 							Message:    "Biz started",
 						},
@@ -364,7 +364,7 @@ func TestTranslateQueryAllBizDataToContainerStatuses(t *testing.T) {
 					Name: "biz1",
 					//PodKey:     vkModel.PodKeyAll,
 					State:      string(vkModel.BizStateActivated),
-					ChangeTime: time.Date(2022, 1, 1, 0, 0, 0, 0, time.UTC),
+					ChangeTime: time.UnixMilli(1234),
 					Reason:     "started",
 					Message:    "Biz started",
 				},
@@ -379,7 +379,7 @@ func TestTranslateQueryAllBizDataToContainerStatuses(t *testing.T) {
 					BizStateRecords: []ark.ArkBizStateRecord{
 						{
 							State:      "DEACTIVATED",
-							ChangeTime: "2022-02-01 00:00:00.000",
+							ChangeTime: 1234,
 							Reason:     "stopped",
 							Message:    "Biz stopped",
 						},
@@ -392,7 +392,7 @@ func TestTranslateQueryAllBizDataToContainerStatuses(t *testing.T) {
 					Name: "biz2",
 					//PodKey:     vkModel.PodKeyAll,
 					State:      string(vkModel.BizStateDeactivated),
-					ChangeTime: time.Date(2022, 2, 1, 0, 0, 0, 0, time.UTC),
+					ChangeTime: time.UnixMilli(1234),
 					Reason:     "stopped",
 					Message:    "Biz stopped",
 				},
@@ -415,29 +415,29 @@ func TestGetLatestState(t *testing.T) {
 	records := []ark.ArkBizStateRecord{
 		{
 			State:      "state1",
-			ChangeTime: "2023-10-10 15:04:05.000",
+			ChangeTime: 1234,
 			Reason:     "Reason1",
 			Message:    "Message1",
 		},
 		{
 			State:      "state2",
-			ChangeTime: "2023-10-10 16:04:05.000",
+			ChangeTime: 12345,
 			Reason:     "Reason2",
 			Message:    "Message2",
 		},
 		{
 			State:      "state1",
-			ChangeTime: "2023-10-10 17:04:05.000",
+			ChangeTime: 123456,
 			Reason:     "Reason3",
 			Message:    "Message3",
 		},
 	}
 
-	expectedTime := time.Date(2023, 10, 10, 17, 4, 5, 0, time.UTC)
+	expectedTime := time.UnixMilli(123456)
 	expectedReason := "Reason3"
 	expectedMessage := "Message3"
 
-	latestTime, reason, message := GetLatestState("state1", records)
+	latestTime, reason, message := GetLatestState(records)
 
 	if !latestTime.Equal(expectedTime) {
 		t.Errorf("Expected latest time %v, got %v", expectedTime, latestTime)
@@ -455,7 +455,7 @@ func TestGetLatestStateNoMatchingRecords(t *testing.T) {
 	records := []ark.ArkBizStateRecord{
 		{
 			State:      "state2",
-			ChangeTime: "2023-10-10 15:04:05.000",
+			ChangeTime: -1234,
 			Reason:     "Reason1",
 			Message:    "Message1",
 		},
@@ -465,7 +465,7 @@ func TestGetLatestStateNoMatchingRecords(t *testing.T) {
 	expectedReason := ""
 	expectedMessage := ""
 
-	latestTime, reason, message := GetLatestState("state1", records)
+	latestTime, reason, message := GetLatestState(records)
 
 	if !latestTime.Equal(expectedTime) {
 		t.Errorf("Expected latest time %v, got %v", expectedTime, latestTime)
@@ -483,23 +483,23 @@ func TestGetLatestStateInvalidChangeTime(t *testing.T) {
 	records := []ark.ArkBizStateRecord{
 		{
 			State:      "state1",
-			ChangeTime: "invalid_time",
+			ChangeTime: 0,
 			Reason:     "Reason1",
 			Message:    "Message1",
 		},
 		{
 			State:      "state1",
-			ChangeTime: "2023-10-10 15:04:05.000",
+			ChangeTime: 1234,
 			Reason:     "Reason2",
 			Message:    "Message2",
 		},
 	}
 
-	expectedTime := time.Date(2023, 10, 10, 15, 4, 5, 0, time.UTC)
+	expectedTime := time.UnixMilli(1234)
 	expectedReason := "Reason2"
 	expectedMessage := "Message2"
 
-	latestTime, reason, message := GetLatestState("state1", records)
+	latestTime, reason, message := GetLatestState(records)
 
 	if !latestTime.Equal(expectedTime) {
 		t.Errorf("Expected latest time %v, got %v", expectedTime, latestTime)
@@ -597,7 +597,7 @@ func TestTranslateSimpleBizDataToArkBizInfos(t *testing.T) {
 
 	for _, tc := range testCases {
 		result := TranslateSimpleBizDataToBizInfos(tc.input)
-		assert.Equal(t, len(result), len(tc.expected), fmt.Errorf("ConvertBaseMetadataToBaselineQuery(%s) = %v; want %v", tc.input, result, tc.expected))
+		assert.Equal(t, len(result), len(tc.expected), fmt.Errorf("ConvertBaseMetadataToBaselineQuery(%v) = %v; want %v", tc.input, result, tc.expected))
 	}
 }
 
@@ -611,10 +611,10 @@ func TestTranslateSimpleBizDataToArkBizInfo(t *testing.T) {
 }
 
 func TestGetLatestState_ChangeTimeLenLt3(t *testing.T) {
-	updatedTime, reason, message := GetLatestState("ACTIVATED", []ark.ArkBizStateRecord{
+	updatedTime, reason, message := GetLatestState([]ark.ArkBizStateRecord{
 		{
 			State:      "ACTIVATED",
-			ChangeTime: "",
+			ChangeTime: 0,
 		},
 	})
 	assert.Zero(t, updatedTime.UnixMilli())

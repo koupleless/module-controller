@@ -1,6 +1,7 @@
 package model
 
 import (
+	"github.com/koupleless/arkctl/v1/service/ark"
 	"github.com/koupleless/module_controller/module_tunnels/koupleless_http_tunnel/ark_service"
 )
 
@@ -53,7 +54,8 @@ type ArkSimpleAllBizInfoData []ArkSimpleBizInfoData
 
 // ArkSimpleBizInfoData represents simplified business information
 type ArkSimpleBizInfoData struct {
-	Name    string `json:"name"`    // Name of the biz
-	Version string `json:"version"` // Version of the biz
-	State   string `json:"state"`   // State of the biz
+	Name              string                `json:"name"`              // Name of the biz
+	Version           string                `json:"version"`           // Version of the biz
+	State             string                `json:"state"`             // State of the biz
+	LatestStateRecord ark.ArkBizStateRecord `json:"latestStateRecord"` // Latest state record of the biz
 }
