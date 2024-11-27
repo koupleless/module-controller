@@ -279,7 +279,7 @@ func (b *MockMQTTBase) SetBizState(bizIdentity, state, reason, message string) {
 	info := b.BizInfos[bizIdentity]
 	info.BizState = state
 	info.BizStateRecords = append(info.BizStateRecords, ark.ArkBizStateRecord{
-		ChangeTime: time.Now().Format("2006-01-02 15:04:05.000"),
+		ChangeTime: 1234,
 		State:      state,
 		Reason:     reason,
 		Message:    message,

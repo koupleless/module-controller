@@ -3,6 +3,7 @@ package koupleless_mqtt_tunnel
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	paho "github.com/eclipse/paho.mqtt.golang"
 	"github.com/koupleless/arkctl/v1/service/ark"
@@ -278,24 +279,49 @@ func (mqttTunnel *MqttTunnel) bizOperationResponseCallback(_ paho.Client, msg pa
 	}
 
 	nodeName := utils2.FormatNodeName(nodeID, mqttTunnel.env)
-	if data.Data.Command == model.CommandInstallBiz && data.Data.Response.Code == "SUCCESS" {
-		mqttTunnel.onOneBizDataArrived(nodeName, vkModel.BizStatusData{
-			Key:  utils.GetBizIdentity(data.Data.BizName, data.Data.BizVersion),
-			Name: data.Data.BizName,
-			// fille PodKey when using
-			// PodKey:     vkModel.PodKeyAll,
-			State:      string(vkModel.BizStateActivated),
-			ChangeTime: time.UnixMilli(data.PublishTimestamp),
-		})
-	} else if data.Data.Command == model.CommandUnInstallBiz && data.Data.Response.Code == "SUCCESS" {
-		mqttTunnel.onOneBizDataArrived(nodeName, vkModel.BizStatusData{
-			Key:  utils.GetBizIdentity(data.Data.BizName, data.Data.BizVersion),
-			Name: data.Data.BizName,
-			// fille PodKey when using
-			// PodKey:     vkModel.PodKeyAll,
-			State:      string(vkModel.BizStateStopped),
-			ChangeTime: time.UnixMilli(data.PublishTimestamp),
-		})
+	if data.Data.Command == model.CommandInstallBiz {
+		if data.Data.Response.Code == "SUCCESS" {
+			mqttTunnel.onOneBizDataArrived(nodeName, vkModel.BizStatusData{
+				Key:        utils.GetBizIdentity(data.Data.BizName, data.Data.BizVersion),
+				Name:       data.Data.BizName,
+				State:      string(vkModel.BizStateActivated),
+				ChangeTime: time.UnixMilli(data.PublishTimestamp),
+				Reason:     fmt.Sprintf("%s:%s %s succeed", data.Data.BizName, data.Data.BizVersion, data.Data.Command),
+				Message:    data.Data.Response.Data.Message,
+			})
+		} else {
+			mqttTunnel.onOneBizDataArrived(nodeName, vkModel.BizStatusData{
+				Key:        utils.GetBizIdentity(data.Data.BizName, data.Data.BizVersion),
+				Name:       data.Data.BizName,
+				State:      string(vkModel.BizStateBroken),
+				ChangeTime: time.UnixMilli(data.PublishTimestamp),
+				Reason:     fmt.Sprintf("%s:%s %s failed", data.Data.BizName, data.Data.BizVersion, data.Data.Command),
+				Message:    data.Data.Response.Data.Message,
+			})
+		}
+	} else if data.Data.Command == model.CommandUnInstallBiz {
+		if data.Data.Response.Code == "SUCCESS" {
+			mqttTunnel.onOneBizDataArrived(nodeName, vkModel.BizStatusData{
+				Key:        utils.GetBizIdentity(data.Data.BizName, data.Data.BizVersion),
+				Name:       data.Data.BizName,
+				State:      string(vkModel.BizStateStopped),
+				ChangeTime: time.UnixMilli(data.PublishTimestamp),
+				Reason:     fmt.Sprintf("%s:%s %s succeed", data.Data.BizName, data.Data.BizVersion, data.Data.Command),
+				Message:    data.Data.Response.Data.Message,
+			})
+		} else {
+			mqttTunnel.onOneBizDataArrived(nodeName, vkModel.BizStatusData{
+				Key:        utils.GetBizIdentity(data.Data.BizName, data.Data.BizVersion),
+				Name:       data.Data.BizName,
+				State:      string(vkModel.BizStateBroken),
+				ChangeTime: time.UnixMilli(data.PublishTimestamp),
+				Reason:     fmt.Sprintf("%s:%s %s failed", data.Data.BizName, data.Data.BizVersion, data.Data.Command),
+				Message:    data.Data.Response.Data.Message,
+			})
+		}
+	} else {
+		unsupported := fmt.Sprintf("unsupport command: %s", data.Data.Command)
+		zlogger.Error(errors.New(unsupported), unsupported)
 	}
 }
 
