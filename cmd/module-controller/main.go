@@ -33,8 +33,6 @@ import (
 	"github.com/koupleless/module_controller/module_tunnels/koupleless_http_tunnel"
 	"github.com/koupleless/module_controller/module_tunnels/koupleless_mqtt_tunnel"
 	"github.com/koupleless/module_controller/report_server"
-	"github.com/koupleless/virtual-kubelet/common/trace"
-	"github.com/koupleless/virtual-kubelet/common/trace/opencensus"
 	"github.com/koupleless/virtual-kubelet/common/tracker"
 	"github.com/koupleless/virtual-kubelet/common/utils"
 	vkModel "github.com/koupleless/virtual-kubelet/model"
@@ -42,6 +40,8 @@ import (
 	"github.com/sirupsen/logrus"
 	"github.com/virtual-kubelet/virtual-kubelet/log"
 	logruslogger "github.com/virtual-kubelet/virtual-kubelet/log/logrus"
+	"github.com/virtual-kubelet/virtual-kubelet/trace"
+	"github.com/virtual-kubelet/virtual-kubelet/trace/opencensus"
 	"sigs.k8s.io/controller-runtime/pkg/cache"
 	"sigs.k8s.io/controller-runtime/pkg/client/config"
 	"sigs.k8s.io/controller-runtime/pkg/manager"
@@ -156,15 +156,15 @@ func main() {
 	}
 
 	if err := mgr.AddHealthzCheck("healthz", healthz.Ping); err != nil {
-		log.G(ctx).Error(err, "unable to set up health check")
+		zlogger.Error(err, "unable to set up health check")
 		os.Exit(1)
 	}
 	if err := mgr.AddReadyzCheck("readyz", healthz.Ping); err != nil {
-		log.G(ctx).Error(err, "unable to set up ready check")
+		zlogger.Error(err, "unable to set up ready check")
 		os.Exit(1)
 	}
 
-	log.G(ctx).Info("Module controller running")
+	zlogger.Info("Module controller running")
 	err = mgr.Start(signals.SetupSignalHandler())
 	if err != nil {
 		log.G(ctx).WithError(err).Error("failed to start manager")
