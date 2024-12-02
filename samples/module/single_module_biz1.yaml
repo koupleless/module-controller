@@ -16,18 +16,18 @@ spec:
       requiredDuringSchedulingIgnoredDuringExecution:
         nodeSelectorTerms: # 基座node选择
           - matchExpressions:
-              - key: base.koupleless.io/stack
+              - key: base.koupleless.io/name
                 operator: In
                 values:
-                  - java
-              - key: vnode.koupleless.io/version
+                  - base # 基座名
+              - key: base.koupleless.io/version
                 operator: In
                 values:
-                  - 1.0.0 # 模块可能只能被调度到一些特殊版本的 node 上，如有这种限制，则必须有这个字段。
-              - key: vnode.koupleless.io/name
+                  - 1.0.0 # 基座版本
+              - key: base.koupleless.io/cluster-name
                 operator: In
                 values:
-                  - base  # 模块可能只能被调度到一些特殊版本的 node 上，如有这种限制，则必须有这个字段。
+                  - default # 基座集群名
   tolerations:
     - key: "schedule.koupleless.io/virtual-node" # 确保模块能够调度到基座node上
       operator: "Equal"

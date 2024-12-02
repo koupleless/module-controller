@@ -314,12 +314,12 @@ func (mdc *ModuleDeploymentController) updateDeploymentReplicas(ctx context.Cont
 }
 
 func getClusterNameFromDeployment(deployment *appsv1.Deployment) string {
-	if clusterName, has := deployment.Labels[vkModel.LabelKeyOfVNodeClusterName]; has {
+	if clusterName, has := deployment.Labels[vkModel.LabelKeyOfBaseClusterName]; has {
 		return clusterName
 	}
 
 	if deployment.Spec.Template.Spec.NodeSelector != nil {
-		if clusterName, has := deployment.Spec.Template.Spec.NodeSelector[vkModel.LabelKeyOfVNodeClusterName]; has {
+		if clusterName, has := deployment.Spec.Template.Spec.NodeSelector[vkModel.LabelKeyOfBaseClusterName]; has {
 			return clusterName
 		}
 	}
@@ -330,7 +330,7 @@ func getClusterNameFromDeployment(deployment *appsv1.Deployment) string {
 		deployment.Spec.Template.Spec.Affinity.NodeAffinity.RequiredDuringSchedulingIgnoredDuringExecution.NodeSelectorTerms != nil {
 		for _, term := range deployment.Spec.Template.Spec.Affinity.NodeAffinity.RequiredDuringSchedulingIgnoredDuringExecution.NodeSelectorTerms {
 			for _, expr := range term.MatchExpressions {
-				if expr.Key == vkModel.LabelKeyOfVNodeClusterName {
+				if expr.Key == vkModel.LabelKeyOfBaseClusterName {
 					return expr.Values[0]
 				}
 			}
@@ -341,7 +341,7 @@ func getClusterNameFromDeployment(deployment *appsv1.Deployment) string {
 }
 
 func getClusterNameFromNode(node *corev1.Node) string {
-	if clusterName, has := node.Labels[vkModel.LabelKeyOfVNodeClusterName]; has {
+	if clusterName, has := node.Labels[vkModel.LabelKeyOfBaseClusterName]; has {
 		return clusterName
 	}
 
@@ -352,7 +352,7 @@ func (mdc *ModuleDeploymentController) getReadyNodeCount(ctx context.Context, cl
 	logger := zaplogger.FromContext(ctx)
 	nodeList := &corev1.NodeList{}
 	err := mdc.cache.List(ctx, nodeList, &client.ListOptions{
-		LabelSelector: labels.SelectorFromSet(map[string]string{vkModel.LabelKeyOfVNodeClusterName: clusterName}),
+		LabelSelector: labels.SelectorFromSet(map[string]string{vkModel.LabelKeyOfBaseClusterName: clusterName}),
 	})
 
 	if err != nil {
