@@ -71,8 +71,6 @@ const (
 
 // Base labels
 const (
-	// LabelKeyOfTechStack specifies the technology stack
-	LabelKeyOfTechStack = "base.koupleless.io/stack"
 	// LabelKeyOfTunnelPort specifies the tunnel port
 	LabelKeyOfTunnelPort = "base.koupleless.io/tunnel-port"
 )

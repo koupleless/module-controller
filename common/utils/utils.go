@@ -110,10 +110,8 @@ func ConvertHealthDataToNodeStatus(data ark.HealthData) vkModel.NodeStatusData {
 	}
 	resourceMap[corev1.ResourceMemory] = memory
 	return vkModel.NodeStatusData{
-		Resources: resourceMap,
-		CustomLabels: map[string]string{
-			model.LabelKeyOfTechStack: "java",
-		},
+		Resources:    resourceMap,
+		CustomLabels: map[string]string{},
 	}
 }
 

@@ -62,9 +62,8 @@ var _ = Describe("Module Deployment Controller Test", func() {
 						},
 					},
 					NodeSelector: map[string]string{
-						model.LabelKeyOfTechStack:          "java",
-						vkModel.LabelKeyOfVNodeVersion:     "1.0.0",
-						vkModel.LabelKeyOfVNodeClusterName: clusterName,
+						vkModel.LabelKeyOfBaseVersion:     "1.0.0",
+						vkModel.LabelKeyOfBaseClusterName: clusterName,
 					},
 					Tolerations: []v1.Toleration{
 						{
@@ -124,9 +123,8 @@ var _ = Describe("Module Deployment Controller Test", func() {
 						},
 					},
 					NodeSelector: map[string]string{
-						model.LabelKeyOfTechStack:          "java",
-						vkModel.LabelKeyOfVNodeVersion:     "1.0.0",
-						vkModel.LabelKeyOfVNodeClusterName: clusterName + "-2",
+						vkModel.LabelKeyOfBaseVersion:     "1.0.0",
+						vkModel.LabelKeyOfBaseClusterName: clusterName + "-2",
 					},
 					Tolerations: []v1.Toleration{
 						{
