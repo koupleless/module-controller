@@ -104,7 +104,7 @@ func main() {
 
 	zlogger.Info("start to start manager")
 	ctrl.SetLogger(zlogger)
-	mgr, err := manager.New(kubeConfig, manager.Options{
+	k8sControllerManager, err := manager.New(kubeConfig, manager.Options{
 		Cache:                  cache.Options{},
 		HealthProbeBindAddress: ":8081",
 		Metrics: server.Options{
@@ -120,7 +120,7 @@ func main() {
 	tracker.SetTracker(&tracker.DefaultTracker{})
 
 	// Configure and create VNode controller
-	rcc := vkModel.BuildVNodeControllerConfig{
+	vNodeControllerConfig := vkModel.BuildVNodeControllerConfig{
 		ClientID:         clientID,
 		Env:              env,
 		VPodType:         model.ComponentModule,
@@ -129,43 +129,43 @@ func main() {
 		VNodeWorkerNum:   vnodeWorkerNum,
 	}
 
-	mdc, err := module_deployment_controller.NewModuleDeploymentController(env)
+	moduleDeploymentController, err := module_deployment_controller.NewModuleDeploymentController(env)
 	if err != nil {
 		zlogger.Error(err, "unable to set up module_deployment_controller")
 		return
 	}
 
-	err = mdc.SetupWithManager(ctx, mgr)
+	err = moduleDeploymentController.SetupWithManager(ctx, k8sControllerManager)
 	if err != nil {
 		zlogger.Error(err, "unable to setup module_deployment_controller")
 		return
 	}
 
-	tunnel := startTunnels(ctx, clientID, env, mgr, mdc)
+	tunnel := startTunnels(ctx, clientID, env, k8sControllerManager, moduleDeploymentController)
 
-	vc, err := vnode_controller.NewVNodeController(&rcc, tunnel)
+	vNodeController, err := vnode_controller.NewVNodeController(&vNodeControllerConfig, tunnel)
 	if err != nil {
 		zlogger.Error(err, "unable to set up VNodeController")
 		return
 	}
 
-	err = vc.SetupWithManager(ctx, mgr)
+	err = vNodeController.SetupWithManager(ctx, k8sControllerManager)
 	if err != nil {
 		zlogger.Error(err, "unable to setup vnode controller")
 		return
 	}
 
-	if err := mgr.AddHealthzCheck("healthz", healthz.Ping); err != nil {
+	if err := k8sControllerManager.AddHealthzCheck("healthz", healthz.Ping); err != nil {
 		zlogger.Error(err, "unable to set up health check")
 		os.Exit(1)
 	}
-	if err := mgr.AddReadyzCheck("readyz", healthz.Ping); err != nil {
+	if err := k8sControllerManager.AddReadyzCheck("readyz", healthz.Ping); err != nil {
 		zlogger.Error(err, "unable to set up ready check")
 		os.Exit(1)
 	}
 
 	zlogger.Info("Module controller running")
-	err = mgr.Start(signals.SetupSignalHandler())
+	err = k8sControllerManager.Start(signals.SetupSignalHandler())
 	if err != nil {
 		log.G(ctx).WithError(err).Error("failed to start manager")
 	}
