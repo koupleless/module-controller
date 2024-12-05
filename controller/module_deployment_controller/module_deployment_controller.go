@@ -190,7 +190,7 @@ func (mdc *ModuleDeploymentController) QueryContainerBaseline(ctx context.Contex
 	containerNames := []string{}
 	for _, deployment := range allDeploymentList.Items {
 		clusterName := getClusterNameFromDeployment(&deployment)
-		if clusterName != "" && clusterName != req.ClusterName {
+		if clusterName != "" && clusterName == req.ClusterName {
 			for _, container := range deployment.Spec.Template.Spec.Containers {
 				containers = append(containers, container)
 				containerNames = append(containerNames, utils.GetBizUniqueKey(&container))
