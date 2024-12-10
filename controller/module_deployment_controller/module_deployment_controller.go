@@ -36,8 +36,6 @@ type ModuleDeploymentController struct {
 
 	cache cache.Cache // The cache for storing and retrieving Kubernetes objects.
 
-	runtimeStorage *RuntimeInfoStore // Storage for runtime information about deployments and nodes.
-
 	updateToken chan interface{} // A channel for signaling updates.
 }
 
@@ -51,9 +49,8 @@ func (moduleDeploymentController *ModuleDeploymentController) Reconcile(ctx cont
 // NewModuleDeploymentController creates a new instance of the controller.
 func NewModuleDeploymentController(env string) (*ModuleDeploymentController, error) {
 	return &ModuleDeploymentController{
-		env:            env,
-		runtimeStorage: NewRuntimeInfoStore(),
-		updateToken:    make(chan interface{}, 1),
+		env:         env,
+		updateToken: make(chan interface{}, 1),
 	}, nil
 }
 
@@ -100,23 +97,15 @@ func (moduleDeploymentController *ModuleDeploymentController) SetupWithManager(c
 			return
 		}
 
-		for _, vnode := range vnodeList.Items {
-			// no deployment, just add
-			moduleDeploymentController.runtimeStorage.PutNode(vnode.DeepCopy())
-		}
-
 		// init deployments
 		depList := &appsv1.DeploymentList{}
 		err = moduleDeploymentController.cache.List(ctx, depList, &client.ListOptions{
 			LabelSelector: deploymentSelector,
 		})
+
 		if err != nil {
 			err = errors.New("failed to list deployments")
 			return
-		}
-
-		for _, deployment := range depList.Items {
-			moduleDeploymentController.runtimeStorage.PutDeployment(deployment)
 		}
 
 		moduleDeploymentController.updateDeploymentReplicas(ctx, depList.Items)
