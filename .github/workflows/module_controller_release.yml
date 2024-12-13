@@ -14,6 +14,8 @@ env:
   WORK_DIR: .
   DOCKERHUB_REGISTRY: serverless-registry.cn-shanghai.cr.aliyuncs.com
   MODULE_CONTROLLER_IMAGE_PATH: opensource/release/module-controller-v2
+  DOCKER_GITHUB_REGISTRY: ghcr.io
+  DOCKER_GITHUB_IMAGE_NAME: ${{ github.repository }}
 
 jobs:
   build-push-linux-amd64-image:
@@ -32,6 +34,12 @@ jobs:
           registry: ${{ env.DOCKERHUB_REGISTRY }}
           username: ${{ secrets.DOCKERHUB_USERNAME }}
           password: ${{ secrets.DOCKERHUB_PASSWORD }}
+      - name: Login to GitHub Container Registry
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ env.DOCKER_GITHUB_REGISTRY }}
+          username: ${{ github.repository_owner }}
+          password: ${{ secrets.GITHUB_TOKEN }}
       - name: Get the version
         id: get_version
         run: |
@@ -49,4 +57,6 @@ jobs:
           file: ${{ env.WORK_DIR }}/Dockerfile
           platforms: linux/amd64,linux/arm64,linux/s390x,linux/ppc64le
           push: true
-          tags: ${{ env.DOCKERHUB_REGISTRY }}/${{ env.MODULE_CONTROLLER_IMAGE_PATH }}:${{ steps.get_version.outputs.VERSION }}
+          tags: |
+            ${{ env.DOCKERHUB_REGISTRY }}/${{ env.MODULE_CONTROLLER_IMAGE_PATH }}:${{ steps.get_version.outputs.VERSION }}
+            ${{ env.DOCKER_GITHUB_REGISTRY }}/${{ env.DOCKER_GITHUB_IMAGE_NAME }}:${{ steps.get_version.outputs.VERSION }}
