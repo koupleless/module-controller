@@ -7,10 +7,13 @@ metadata:
 spec:
   containers:
     - name: base
-      image: serverless-registry.cn-shanghai.cr.aliyuncs.com/opensource/test/base-web:1.1.1 # 已经打包好的镜像
+      image: serverless-registry.cn-shanghai.cr.aliyuncs.com/opensource/test/base-web:1.3.3 # 已经打包好的镜像，源码在 https://github.com/koupleless/samples/blob/main/springboot-samples/web/tomcat/Dockerfile
       imagePullPolicy: Always
       ports:
         - name: base
           containerPort: 8080
         - name: arklet
           containerPort: 1238
+      env:
+        - name: MODULE_CONTROLLER_ADDRESS
+          value: { YOUR_MODULE_CONTROLLER_IP }
