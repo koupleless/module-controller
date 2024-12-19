@@ -82,6 +82,7 @@ func ConvertBaseStatusToNodeInfo(data model.BaseStatus, env string) vkModel.Node
 	return vkModel.NodeInfo{
 		Metadata: vkModel.NodeMetadata{
 			Name:        utils.FormatNodeName(data.BaseMetadata.Identity, env),
+			BaseName:    data.BaseMetadata.Name,
 			ClusterName: data.BaseMetadata.ClusterName,
 			Version:     data.BaseMetadata.Version,
 		},
