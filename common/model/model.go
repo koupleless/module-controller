@@ -16,6 +16,7 @@ type BaseMetadata struct {
 	Identity    string `json:"identity"`
 	Version     string `json:"version"`     // Version identifier
 	ClusterName string `json:"clusterName"` // ClusterName of the resource communicate with base
+	Name        string `json:"name"`        // Name of the base
 }
 
 // BaseStatus is the data of base heart beat.
