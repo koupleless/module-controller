@@ -13,12 +13,12 @@ type UninstallBizRequest struct {
 }
 
 // ArkResponse is a generic response structure for Ark service operations
-type ArkResponse struct {
+type ArkResponse[T any] struct {
 	// Code is the response code indicating the outcome of the operation
 	Code string `json:"code"`
 
 	// Data is the response data, which can vary depending on the operation
-	Data ark.ArkResponseData `json:"data"`
+	Data T `json:"data"`
 
 	// Message is the error message in case of an error
 	Message string `json:"message"`

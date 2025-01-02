@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"github.com/koupleless/arkctl/v1/service/ark"
 	"github.com/koupleless/module_controller/common/zaplogger"
 
 	"github.com/go-resty/resty/v2"
@@ -18,7 +19,7 @@ func NewService() *Service {
 	return &Service{client: resty.New()}
 }
 
-func (h *Service) InstallBiz(ctx context.Context, req InstallBizRequest, baseIP string, arkletPort int) (response ArkResponse, err error) {
+func (h *Service) InstallBiz(ctx context.Context, req InstallBizRequest, baseIP string, arkletPort int) (response ArkResponse[ark.ArkResponseData], err error) {
 	logger := zaplogger.FromContext(ctx)
 
 	resp, err := h.client.R().
@@ -45,7 +46,7 @@ func (h *Service) InstallBiz(ctx context.Context, req InstallBizRequest, baseIP 
 	return response, nil
 }
 
-func (h *Service) UninstallBiz(ctx context.Context, req UninstallBizRequest, baseIP string, arkletPort int) (response ArkResponse, err error) {
+func (h *Service) UninstallBiz(ctx context.Context, req UninstallBizRequest, baseIP string, arkletPort int) (response ArkResponse[ark.ArkResponseData], err error) {
 	logger := zaplogger.FromContext(ctx)
 
 	resp, err := h.client.R().

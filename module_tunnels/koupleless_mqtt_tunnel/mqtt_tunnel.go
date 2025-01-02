@@ -15,8 +15,10 @@ import (
 	utils2 "github.com/koupleless/virtual-kubelet/common/utils"
 	vkModel "github.com/koupleless/virtual-kubelet/model"
 	"github.com/koupleless/virtual-kubelet/tunnel"
+	"github.com/virtual-kubelet/virtual-kubelet/log"
 	corev1 "k8s.io/api/core/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
+	"strings"
 	"sync"
 	"time"
 )
@@ -58,17 +60,50 @@ func (mqttTunnel *MqttTunnel) GetBizUniqueKey(container *corev1.Container) strin
 	return utils.GetBizIdentity(container.Name, utils.GetBizVersionFromContainer(container))
 }
 
-func (mqttTunnel *MqttTunnel) RegisterNode(nodeInfo vkModel.NodeInfo) {
+func (mqttTunnel *MqttTunnel) RegisterNode(nodeInfo vkModel.NodeInfo) error {
+	zlogger := zaplogger.FromContext(mqttTunnel.ctx)
+
 	nodeID := utils2.ExtractNodeIDFromNodeName(nodeInfo.Metadata.Name)
-	mqttTunnel.mqttClient.Sub(fmt.Sprintf(model.BaseHealthTopic, mqttTunnel.env, nodeID), mqtt.Qos1, mqttTunnel.healthMsgCallback)
 
-	mqttTunnel.mqttClient.Sub(fmt.Sprintf(model.BaseSimpleBizTopic, mqttTunnel.env, nodeID), mqtt.Qos1, mqttTunnel.bizMsgCallback)
+	var err error
+	topic := fmt.Sprintf(model.BaseHealthTopic, mqttTunnel.env, nodeID)
+	err = mqttTunnel.mqttClient.Sub(topic, mqtt.Qos1, mqttTunnel.healthMsgCallback)
+	if err != nil {
+		zlogger.Error(err, fmt.Sprintf("Error when registering node: %s for topic: %s", nodeID, topic))
+		return err
+	}
 
-	mqttTunnel.mqttClient.Sub(fmt.Sprintf(model.BaseAllBizTopic, mqttTunnel.env, nodeID), mqtt.Qos1, mqttTunnel.allBizMsgCallback)
+	topic = fmt.Sprintf(model.BaseSimpleBizTopic, mqttTunnel.env, nodeID)
+	err = mqttTunnel.mqttClient.Sub(topic, mqtt.Qos1, mqttTunnel.bizMsgCallback)
+	if err != nil {
+		zlogger.Error(err, fmt.Sprintf("Error when registering node: %s for topic: %s", nodeID, topic))
+		return err
+	}
 
-	mqttTunnel.mqttClient.Sub(fmt.Sprintf(model.BaseBizOperationResponseTopic, mqttTunnel.env, nodeID), mqtt.Qos1, mqttTunnel.bizOperationResponseCallback)
+	topic = fmt.Sprintf(model.BaseAllBizTopic, mqttTunnel.env, nodeID)
+	err = mqttTunnel.mqttClient.Sub(topic, mqtt.Qos1, mqttTunnel.allBizMsgCallback)
+	if err != nil {
+		zlogger.Error(err, fmt.Sprintf("Error when registering node: %s for topic: %s", nodeID, topic))
+		return err
+	}
+
+	topic = fmt.Sprintf(model.BaseBizOperationResponseTopic, mqttTunnel.env, nodeID)
+	err = mqttTunnel.mqttClient.Sub(topic, mqtt.Qos1, mqttTunnel.bizOperationResponseCallback)
+	if err != nil {
+		zlogger.Error(err, fmt.Sprintf("Error when registering node: %s for topic: %s", nodeID, topic))
+		return err
+	}
+
+	topic = fmt.Sprintf(model.BaseBatchInstallBizResponseTopic, mqttTunnel.env, nodeID)
+	err = mqttTunnel.mqttClient.Sub(topic, mqtt.Qos1, mqttTunnel.batchInstallBizResponseCallback)
+	if err != nil {
+		zlogger.Error(err, fmt.Sprintf("Error when registering node: %s for topic: %s", nodeID, topic))
+		return err
+	}
+
 	mqttTunnel.Lock()
 	defer mqttTunnel.Unlock()
+	return nil
 }
 
 func (mqttTunnel *MqttTunnel) UnRegisterNode(nodeName string) {
@@ -183,6 +218,7 @@ func (mqttTunnel *MqttTunnel) queryBaselineMsgCallback(_ paho.Client, msg paho.M
 		for _, container := range baselineContainers {
 			baselineBizs = append(baselineBizs, utils.TranslateCoreV1ContainerToBizModel(&container))
 		}
+		log.G(mqttTunnel.ctx).Info("queried baseline {} ", baselineBizs)
 		baselineBytes, _ := json.Marshal(baselineBizs)
 		err = mqttTunnel.mqttClient.Pub(utils.FormatBaselineResponseTopic(mqttTunnel.env, nodeID), mqtt.Qos1, baselineBytes)
 		if err != nil {
@@ -323,6 +359,64 @@ func (mqttTunnel *MqttTunnel) bizOperationResponseCallback(_ paho.Client, msg pa
 		unsupported := fmt.Sprintf("unsupport command: %s", data.Data.Command)
 		zlogger.Error(errors.New(unsupported), unsupported)
 	}
+}
+
+func (mqttTunnel *MqttTunnel) batchInstallBizResponseCallback(_ paho.Client, msg paho.Message) {
+	defer msg.Ack()
+	zlogger := zaplogger.FromContext(mqttTunnel.ctx)
+
+	zlogger.Info(fmt.Sprintf("query batch biz operation status callback for %s: %s", msg.Topic(), msg.Payload()))
+	var data model.ArkMqttMsg[model.BatchInstallBizResponse]
+	err := json.Unmarshal(msg.Payload(), &data)
+	if err != nil {
+		zlogger.Error(err, "Error unmarshalling biz response")
+		return
+	}
+
+	if data.Data.Command != model.CommandBatchInstallBiz {
+		unsupported := fmt.Sprintf("Error command: %s, should be batchInstallBiz", data.Data.Command)
+		zlogger.Error(errors.New(unsupported), unsupported)
+		return
+	}
+
+	bizStatusData := mqttTunnel.convertToBizStatusData(data)
+	if bizStatusData != nil && len(bizStatusData) > 0 {
+		nodeID := utils.GetBaseIdentityFromTopic(msg.Topic())
+		nodeName := utils2.FormatNodeName(nodeID, mqttTunnel.env)
+		mqttTunnel.onAllBizStatusArrived(nodeName, bizStatusData)
+	}
+}
+
+func (mqttTunnel *MqttTunnel) convertToBizStatusData(msg model.ArkMqttMsg[model.BatchInstallBizResponse]) []vkModel.BizStatusData {
+	var result []vkModel.BizStatusData
+	arkBatchInstallResponse := msg.Data.Response.Data
+	for _, bizResponse := range arkBatchInstallResponse.BizUrlToResponse {
+		bizInfo := bizResponse.BizInfos[0]
+		bizName := bizInfo.BizName
+		bizVersion := bizInfo.BizVersion
+		bizState := strings.ToUpper(bizInfo.BizState)
+		changeTime := time.UnixMilli(msg.PublishTimestamp)
+		message := bizResponse.Message
+		var reason string
+		if mqttTunnel.isActivatedBiz(bizInfo.BizState) {
+			reason = fmt.Sprintf("%s:%s %s succeed", bizName, bizVersion, bizState)
+		} else {
+			reason = fmt.Sprintf("%s:%s %s failed", bizName, bizVersion, bizState)
+		}
+		result = append(result, vkModel.BizStatusData{
+			Key:        utils.GetBizIdentity(bizName, bizVersion),
+			Name:       bizName,
+			State:      bizState,
+			ChangeTime: changeTime,
+			Reason:     reason,
+			Message:    message,
+		})
+	}
+	return result
+}
+
+func (mqttTunnel *MqttTunnel) isActivatedBiz(bizState string) bool {
+	return strings.ToUpper(bizState) == "ACTIVATED"
 }
 
 func (mqttTunnel *MqttTunnel) FetchHealthData(nodeName string) error {

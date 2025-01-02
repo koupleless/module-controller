@@ -73,7 +73,7 @@ func (h *HttpTunnel) GetBizUniqueKey(container *corev1.Container) string {
 }
 
 // RegisterNode is called when a new node starts
-func (h *HttpTunnel) RegisterNode(initData vkModel.NodeInfo) {
+func (h *HttpTunnel) RegisterNode(initData vkModel.NodeInfo) error {
 	h.Lock()
 	defer h.Unlock()
 
@@ -83,6 +83,7 @@ func (h *HttpTunnel) RegisterNode(initData vkModel.NodeInfo) {
 	if !has {
 		h.nodeIdToBaseStatusMap[nodeID] = utils.ConvertBaseStatusFromNodeInfo(initData)
 	}
+	return nil
 }
 
 // UnRegisterNode is called when a node stops

@@ -235,13 +235,15 @@ func (b *MockHttpBase) processInstallBiz(msg []byte) []byte {
 			},
 		}
 	}
-	response := ark_service.ArkResponse{
+	response := ark_service.ArkResponse[ark.ArkResponseData]{
 		Code: "SUCCESS",
 		Data: ark.ArkResponseData{
-			Code:         "SUCCESS",
-			Message:      "",
+			ArkClientResponse: ark.ArkClientResponse{
+				Code:     "SUCCESS",
+				Message:  "",
+				BizInfos: nil,
+			},
 			ElapsedSpace: 0,
-			BizInfos:     nil,
 		},
 		Message:         "",
 		ErrorStackTrace: "",
@@ -260,13 +262,15 @@ func (b *MockHttpBase) processUnInstallBiz(msg []byte) []byte {
 	logrus.Infof("uninstall biz %s from http base", identity)
 	delete(b.BizInfos, identity)
 	// send to response
-	response := ark_service.ArkResponse{
+	response := ark_service.ArkResponse[ark.ArkResponseData]{
 		Code: "SUCCESS",
 		Data: ark.ArkResponseData{
-			Code:         "SUCCESS",
-			Message:      "",
+			ArkClientResponse: ark.ArkClientResponse{
+				Code:     "SUCCESS",
+				Message:  "",
+				BizInfos: nil,
+			},
 			ElapsedSpace: 0,
-			BizInfos:     nil,
 		},
 		Message:         "",
 		ErrorStackTrace: "",
