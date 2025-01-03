@@ -94,8 +94,8 @@ github.com/kisielk/errcheck v1.5.0/go.mod h1:pFxgyoBC7bSaBwPgfKdkLd5X25qrDl4LWUI
 github.com/kisielk/gotool v1.0.0/go.mod h1:XhKaO+MFFWcvkIS/tQcRk01m1F5IRFswLeQ+oQHNcck=
 github.com/koupleless/arkctl v0.2.3 h1:gjKvxvh2WT9dOGrFCWFFIAvnwN7uy1UtI7DA+npnJuY=
 github.com/koupleless/arkctl v0.2.3/go.mod h1:nbnAiPEv7x/ZDQ+QsjFWkqwxMDofGmqnFPHa3XpXHyE=
-github.com/koupleless/virtual-kubelet v0.3.5-0.20241202100357-ca8cd8f2827a h1:1S/Pa6fxj0M6P9cQVeu3sPRTqAoKfYzxqicl92U25g0=
-github.com/koupleless/virtual-kubelet v0.3.5-0.20241202100357-ca8cd8f2827a/go.mod h1:5fQ0uI9egbYDMxgUE0niS4agDTssIOCjq5wyO0ALNaU=
+github.com/koupleless/virtual-kubelet v0.3.6-0.20241219063827-66baf533a4ab h1:EkozcBGAFwB1H03he6jHJXSB2gAXMvv7+IXRC18LwsM=
+github.com/koupleless/virtual-kubelet v0.3.6-0.20241219063827-66baf533a4ab/go.mod h1:5fQ0uI9egbYDMxgUE0niS4agDTssIOCjq5wyO0ALNaU=
 github.com/kr/pretty v0.2.1/go.mod h1:ipq/a2n7PKx3OHsz4KJII5eveXtPO4qwEXGdVfWzfnI=
 github.com/kr/pretty v0.3.1 h1:flRD4NNwYAUpkphVc1HcthR4KEIFJ65n8Mw5qdRn3LE=
 github.com/kr/pretty v0.3.1/go.mod h1:hoEshYVHaxMs3cyo3Yncou5ZscifuDolrwPKZanG3xk=
