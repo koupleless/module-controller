@@ -231,11 +231,15 @@ func (b *MockMQTTBase) processUnInstallBiz(msg []byte) {
 			Command:    model.CommandUnInstallBiz,
 			BizName:    request.BizName,
 			BizVersion: request.BizVersion,
-			Response: ark_service.ArkResponse{
+			Response: ark_service.ArkResponse[ark.ArkResponseData]{
 				Code: "SUCCESS",
 				Data: ark.ArkResponseData{
-					Code:    "SUCCESS",
-					Message: "",
+					ArkClientResponse: ark.ArkClientResponse{
+						Code:     "SUCCESS",
+						Message:  "",
+						BizInfos: nil,
+					},
+					ElapsedSpace: 0,
 				},
 				Message:         "",
 				ErrorStackTrace: "",
@@ -293,11 +297,15 @@ func (b *MockMQTTBase) SetBizState(bizIdentity, state, reason, message string) {
 				Command:    model.CommandInstallBiz,
 				BizName:    info.BizName,
 				BizVersion: info.BizVersion,
-				Response: ark_service.ArkResponse{
+				Response: ark_service.ArkResponse[ark.ArkResponseData]{
 					Code: "SUCCESS",
 					Data: ark.ArkResponseData{
-						Code:    "SUCCESS",
-						Message: "",
+						ArkClientResponse: ark.ArkClientResponse{
+							Code:     "SUCCESS",
+							Message:  "",
+							BizInfos: nil,
+						},
+						ElapsedSpace: 0,
 					},
 					Message:         "",
 					ErrorStackTrace: "",
