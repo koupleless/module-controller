@@ -5,7 +5,9 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"github.com/koupleless/arkctl/v1/service/ark"
 	"github.com/koupleless/module_controller/common/zaplogger"
+	"net/http"
 
 	"github.com/go-resty/resty/v2"
 )
@@ -18,7 +20,7 @@ func NewService() *Service {
 	return &Service{client: resty.New()}
 }
 
-func (h *Service) InstallBiz(ctx context.Context, req InstallBizRequest, baseIP string, arkletPort int) (response ArkResponse, err error) {
+func (h *Service) InstallBiz(ctx context.Context, req InstallBizRequest, baseIP string, arkletPort int) (response ArkResponse[ark.ArkResponseData], err error) {
 	logger := zaplogger.FromContext(ctx)
 
 	resp, err := h.client.R().
@@ -37,6 +39,12 @@ func (h *Service) InstallBiz(ctx context.Context, req InstallBizRequest, baseIP 
 		return
 	}
 
+	if resp.StatusCode() != http.StatusOK {
+		err = errors.New(fmt.Sprintf("response status: %d", resp.StatusCode()))
+		logger.Error(err, "installBiz request failed")
+		return
+	}
+
 	if err = json.Unmarshal(resp.Body(), &response); err != nil {
 		logger.Error(err, fmt.Sprintf("Unmarshal InstallBiz response: %s", resp.Body()))
 		return
@@ -45,7 +53,7 @@ func (h *Service) InstallBiz(ctx context.Context, req InstallBizRequest, baseIP 
 	return response, nil
 }
 
-func (h *Service) UninstallBiz(ctx context.Context, req UninstallBizRequest, baseIP string, arkletPort int) (response ArkResponse, err error) {
+func (h *Service) UninstallBiz(ctx context.Context, req UninstallBizRequest, baseIP string, arkletPort int) (response ArkResponse[ark.ArkResponseData], err error) {
 	logger := zaplogger.FromContext(ctx)
 
 	resp, err := h.client.R().
@@ -60,6 +68,12 @@ func (h *Service) UninstallBiz(ctx context.Context, req UninstallBizRequest, bas
 
 	if resp == nil {
 		err = errors.New("received nil response from the server")
+		logger.Error(err, "uninstall request failed")
+		return
+	}
+
+	if resp.StatusCode() != http.StatusOK {
+		err = errors.New(fmt.Sprintf("response status: %d", resp.StatusCode()))
 		logger.Error(err, "uninstall request failed")
 		return
 	}
@@ -91,6 +105,12 @@ func (h *Service) QueryAllBiz(ctx context.Context, baseIP string, port int) (res
 		return
 	}
 
+	if resp.StatusCode() != http.StatusOK {
+		err = errors.New(fmt.Sprintf("response status: %d", resp.StatusCode()))
+		logger.Error(err, "queryAllBiz request failed")
+		return
+	}
+
 	if err = json.Unmarshal(resp.Body(), &response); err != nil {
 		logger.Error(err, fmt.Sprintf("Unmarshal QueryAllBiz response: %s", resp.Body()))
 		return
@@ -114,6 +134,12 @@ func (h *Service) Health(ctx context.Context, baseIP string, arkletPort int) (re
 
 	if resp == nil {
 		err = errors.New("received nil response from the server")
+		logger.Error(err, "health request failed")
+		return
+	}
+
+	if resp.StatusCode() != http.StatusOK {
+		err = errors.New(fmt.Sprintf("response status: %d", resp.StatusCode()))
 		logger.Error(err, "health request failed")
 		return
 	}

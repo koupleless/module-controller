@@ -131,6 +131,14 @@ func (b *MockMQTTBase) getHealthMsg() []byte {
 							BizState:   b.CurrState,
 							BizVersion: b.BaseMetadata.Version,
 						},
+						Cpu: ark.CpuInfo{
+							Count:      1,
+							TotalUsed:  20,
+							Type:       "intel",
+							UserUsed:   2,
+							Free:       80,
+							SystemUsed: 13,
+						},
 					},
 				},
 				Message: "",
@@ -231,11 +239,15 @@ func (b *MockMQTTBase) processUnInstallBiz(msg []byte) {
 			Command:    model.CommandUnInstallBiz,
 			BizName:    request.BizName,
 			BizVersion: request.BizVersion,
-			Response: ark_service.ArkResponse{
+			Response: ark_service.ArkResponse[ark.ArkResponseData]{
 				Code: "SUCCESS",
 				Data: ark.ArkResponseData{
-					Code:    "SUCCESS",
-					Message: "",
+					ArkClientResponse: ark.ArkClientResponse{
+						Code:     "SUCCESS",
+						Message:  "",
+						BizInfos: nil,
+					},
+					ElapsedSpace: 0,
 				},
 				Message:         "",
 				ErrorStackTrace: "",
@@ -293,11 +305,15 @@ func (b *MockMQTTBase) SetBizState(bizIdentity, state, reason, message string) {
 				Command:    model.CommandInstallBiz,
 				BizName:    info.BizName,
 				BizVersion: info.BizVersion,
-				Response: ark_service.ArkResponse{
+				Response: ark_service.ArkResponse[ark.ArkResponseData]{
 					Code: "SUCCESS",
 					Data: ark.ArkResponseData{
-						Code:    "SUCCESS",
-						Message: "",
+						ArkClientResponse: ark.ArkClientResponse{
+							Code:     "SUCCESS",
+							Message:  "",
+							BizInfos: nil,
+						},
+						ElapsedSpace: 0,
 					},
 					Message:         "",
 					ErrorStackTrace: "",

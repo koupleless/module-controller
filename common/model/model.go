@@ -31,10 +31,15 @@ type BaseStatus struct {
 
 // BizOperationResponse represents the response from a business operation
 type BizOperationResponse struct {
-	Command    string                  `json:"command"`    // Operation command executed
-	BizName    string                  `json:"bizName"`    // ClusterName of the business
-	BizVersion string                  `json:"bizVersion"` // Version of the business
-	Response   ark_service.ArkResponse `json:"response"`   // Response from ark service
+	Command    string                                       `json:"command"`    // Operation command executed
+	BizName    string                                       `json:"bizName"`    // ClusterName of the business
+	BizVersion string                                       `json:"bizVersion"` // Version of the business
+	Response   ark_service.ArkResponse[ark.ArkResponseData] `json:"response"`   // Response from ark service
+}
+
+type BatchInstallBizResponse struct {
+	Command  string                                               `json:"command"`  // Operation command executed
+	Response ark_service.ArkResponse[ark.ArkBatchInstallResponse] `json:"response"` // Response from ark service
 }
 
 // QueryBaselineRequest is the request parameters of query baseline func

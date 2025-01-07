@@ -92,10 +92,10 @@ github.com/json-iterator/go v1.1.12 h1:PV8peI4a0ysnczrg+LtxykD8LfKY9ML6u2jnxaEnr
 github.com/json-iterator/go v1.1.12/go.mod h1:e30LSqwooZae/UwlEbR2852Gd8hjQvJoHmT4TnhNGBo=
 github.com/kisielk/errcheck v1.5.0/go.mod h1:pFxgyoBC7bSaBwPgfKdkLd5X25qrDl4LWUI2bnpBCr8=
 github.com/kisielk/gotool v1.0.0/go.mod h1:XhKaO+MFFWcvkIS/tQcRk01m1F5IRFswLeQ+oQHNcck=
-github.com/koupleless/arkctl v0.2.3 h1:gjKvxvh2WT9dOGrFCWFFIAvnwN7uy1UtI7DA+npnJuY=
-github.com/koupleless/arkctl v0.2.3/go.mod h1:nbnAiPEv7x/ZDQ+QsjFWkqwxMDofGmqnFPHa3XpXHyE=
-github.com/koupleless/virtual-kubelet v0.3.6-0.20241219063827-66baf533a4ab h1:EkozcBGAFwB1H03he6jHJXSB2gAXMvv7+IXRC18LwsM=
-github.com/koupleless/virtual-kubelet v0.3.6-0.20241219063827-66baf533a4ab/go.mod h1:5fQ0uI9egbYDMxgUE0niS4agDTssIOCjq5wyO0ALNaU=
+github.com/koupleless/arkctl v0.2.4-0.20250106035535-5ed5cb871995 h1:dkBdI/WczkOJ4LaoZteX3uz8r+WKxBqYQjpzwyVDvyw=
+github.com/koupleless/arkctl v0.2.4-0.20250106035535-5ed5cb871995/go.mod h1:nbnAiPEv7x/ZDQ+QsjFWkqwxMDofGmqnFPHa3XpXHyE=
+github.com/koupleless/virtual-kubelet v0.3.6-0.20250106054929-8ac8664e1858 h1:yMpgkyoWcr3XNj6cHqt/HwzE9LO6/HHqcRn4vvd3PBk=
+github.com/koupleless/virtual-kubelet v0.3.6-0.20250106054929-8ac8664e1858/go.mod h1:V/RjXRvoSNr55I9KMV+tgtOp6duxxBMcwyDTH04XiX0=
 github.com/kr/pretty v0.2.1/go.mod h1:ipq/a2n7PKx3OHsz4KJII5eveXtPO4qwEXGdVfWzfnI=
 github.com/kr/pretty v0.3.1 h1:flRD4NNwYAUpkphVc1HcthR4KEIFJ65n8Mw5qdRn3LE=
 github.com/kr/pretty v0.3.1/go.mod h1:hoEshYVHaxMs3cyo3Yncou5ZscifuDolrwPKZanG3xk=

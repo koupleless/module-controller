@@ -49,6 +49,8 @@ const (
 	CommandInstallBiz = "installBiz"
 	// CommandUnInstallBiz uninstalls a business module
 	CommandUnInstallBiz = "uninstallBiz"
+	// CommandBatchInstallBiz batch install biz, since koupleless-runtime 1.4.1
+	CommandBatchInstallBiz = "batchInstallBiz"
 )
 
 // MQTT topic patterns for base communication
@@ -65,6 +67,8 @@ const (
 	BaseAllBizTopic = "koupleless_%s/%s/base/biz"
 	// BaseBizOperationResponseTopic for business operation responses, p2p mode
 	BaseBizOperationResponseTopic = "koupleless_%s/%s/base/bizOperation"
+	// BaseBatchInstallBizResponseTopic for response of batch install biz, p2p mode, since koupleless-runtime 1.4.1
+	BaseBatchInstallBizResponseTopic = "koupleless_%s/%s/base/batchInstallBizResponse"
 	// BaseBaselineResponseTopic for baseline responses, p2p mode
 	BaseBaselineResponseTopic = "koupleless_%s/%s/base/baseline"
 )

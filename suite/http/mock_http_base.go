@@ -54,39 +54,39 @@ func (b *MockHttpBase) Exit() {
 	}
 }
 
-func (b *MockHttpBase) Start(ctx context.Context, clientID string) error {
-	b.exit = make(chan struct{})
-	b.CurrState = "ACTIVATED"
+func (base *MockHttpBase) Start(ctx context.Context, clientID string) error {
+	base.exit = make(chan struct{})
+	base.CurrState = "ACTIVATED"
 	// start a http server to mock base
 	mux := http.NewServeMux()
 
 	server := http.Server{
-		Addr:    fmt.Sprintf(":%d", b.port),
+		Addr:    fmt.Sprintf(":%d", base.port),
 		Handler: mux,
 	}
 
 	mux.HandleFunc("/health", func(w http.ResponseWriter, r *http.Request) {
-		if b.reachable {
+		if base.reachable {
 			w.WriteHeader(http.StatusOK)
 			w.Header().Set("Content-Type", "application/json")
-			w.Write(b.getHealthMsg())
+			w.Write(base.getHealthMsg())
 		} else {
 			w.WriteHeader(http.StatusBadGateway)
 		}
 	})
 
 	mux.HandleFunc("/queryAllBiz", func(w http.ResponseWriter, r *http.Request) {
-		if b.reachable {
+		if base.reachable {
 			w.WriteHeader(http.StatusOK)
 			w.Header().Set("Content-Type", "application/json")
-			w.Write(b.getQueryAllBizMsg())
+			w.Write(base.getQueryAllBizMsg())
 		} else {
 			w.WriteHeader(http.StatusBadGateway)
 		}
 	})
 
 	mux.HandleFunc("/installBiz", func(w http.ResponseWriter, r *http.Request) {
-		if b.reachable {
+		if base.reachable {
 			w.WriteHeader(http.StatusOK)
 			w.Header().Set("Content-Type", "application/json")
 
@@ -97,7 +97,7 @@ func (b *MockHttpBase) Start(ctx context.Context, clientID string) error {
 				return
 			}
 
-			w.Write(b.processInstallBiz(body))
+			w.Write(base.processInstallBiz(body))
 		} else {
 			w.WriteHeader(http.StatusBadGateway)
 		}
@@ -105,7 +105,7 @@ func (b *MockHttpBase) Start(ctx context.Context, clientID string) error {
 	})
 
 	mux.HandleFunc("/uninstallBiz", func(w http.ResponseWriter, r *http.Request) {
-		if b.reachable {
+		if base.reachable {
 			w.WriteHeader(http.StatusOK)
 			w.Header().Set("Content-Type", "application/json")
 
@@ -116,7 +116,7 @@ func (b *MockHttpBase) Start(ctx context.Context, clientID string) error {
 				return
 			}
 
-			w.Write(b.processUnInstallBiz(body))
+			w.Write(base.processUnInstallBiz(body))
 		} else {
 			w.WriteHeader(http.StatusBadGateway)
 		}
@@ -126,16 +126,16 @@ func (b *MockHttpBase) Start(ctx context.Context, clientID string) error {
 
 	// Start a new goroutine to upload node heart beat data every 10 seconds
 	go utils.TimedTaskWithInterval(ctx, time.Second*10, func(ctx context.Context) {
-		if b.reachable {
-			log.G(ctx).Info("upload node heart beat data from node ", b.Metadata.Identity)
-			_, err := http.Post("http://127.0.0.1:7777/heartbeat", "application/json", bytes.NewBuffer(b.getHeartBeatMsg()))
+		if base.reachable {
+			log.G(ctx).Info("upload node heart beat data from node ", base.Metadata.Identity)
+			_, err := http.Post("http://127.0.0.1:7777/heartbeat", "application/json", bytes.NewBuffer(base.getHeartBeatMsg()))
 			if err != nil {
 				logrus.Errorf("error calling heartbeat: %s", err)
 			}
 		}
 	})
 
-	_, err := http.Post("http://127.0.0.1:7777/heartbeat", "application/json", bytes.NewBuffer(b.getHeartBeatMsg()))
+	_, err := http.Post("http://127.0.0.1:7777/heartbeat", "application/json", bytes.NewBuffer(base.getHeartBeatMsg()))
 	if err != nil {
 		logrus.Errorf("error calling heartbeat: %s", err)
 		return err
@@ -144,10 +144,10 @@ func (b *MockHttpBase) Start(ctx context.Context, clientID string) error {
 	go func() {
 		select {
 		case <-ctx.Done():
-		case <-b.exit:
+		case <-base.exit:
 		}
-		b.CurrState = "DEACTIVATED"
-		_, err = http.Post("http://127.0.0.1:7777/heartbeat", "application/json", bytes.NewBuffer(b.getHeartBeatMsg()))
+		base.CurrState = "DEACTIVATED"
+		_, err = http.Post("http://127.0.0.1:7777/heartbeat", "application/json", bytes.NewBuffer(base.getHeartBeatMsg()))
 		time.Sleep(2 * time.Second)
 		server.Shutdown(ctx)
 		if err != nil {
@@ -185,6 +185,14 @@ func (b *MockHttpBase) getHealthMsg() []byte {
 						BizName:    b.Metadata.Identity,
 						BizState:   b.CurrState,
 						BizVersion: b.Metadata.Version,
+					},
+					Cpu: ark.CpuInfo{
+						Count:      1,
+						TotalUsed:  20,
+						Type:       "intel",
+						UserUsed:   2,
+						Free:       80,
+						SystemUsed: 13,
 					},
 				},
 			},
@@ -235,13 +243,15 @@ func (b *MockHttpBase) processInstallBiz(msg []byte) []byte {
 			},
 		}
 	}
-	response := ark_service.ArkResponse{
+	response := ark_service.ArkResponse[ark.ArkResponseData]{
 		Code: "SUCCESS",
 		Data: ark.ArkResponseData{
-			Code:         "SUCCESS",
-			Message:      "",
+			ArkClientResponse: ark.ArkClientResponse{
+				Code:     "SUCCESS",
+				Message:  "",
+				BizInfos: nil,
+			},
 			ElapsedSpace: 0,
-			BizInfos:     nil,
 		},
 		Message:         "",
 		ErrorStackTrace: "",
@@ -260,13 +270,15 @@ func (b *MockHttpBase) processUnInstallBiz(msg []byte) []byte {
 	logrus.Infof("uninstall biz %s from http base", identity)
 	delete(b.BizInfos, identity)
 	// send to response
-	response := ark_service.ArkResponse{
+	response := ark_service.ArkResponse[ark.ArkResponseData]{
 		Code: "SUCCESS",
 		Data: ark.ArkResponseData{
-			Code:         "SUCCESS",
-			Message:      "",
+			ArkClientResponse: ark.ArkClientResponse{
+				Code:     "SUCCESS",
+				Message:  "",
+				BizInfos: nil,
+			},
 			ElapsedSpace: 0,
-			BizInfos:     nil,
 		},
 		Message:         "",
 		ErrorStackTrace: "",
