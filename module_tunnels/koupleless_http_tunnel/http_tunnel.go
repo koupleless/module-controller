@@ -227,24 +227,32 @@ func (h *HttpTunnel) allBizMsgCallback(nodeID string, data ark_service.QueryAllB
 		return
 	}
 	if h.onQueryAllBizDataArrived != nil {
+		fmt.Println("allBizMsgCallback!")
 		h.onQueryAllBizDataArrived(utils2.FormatNodeName(nodeID, h.env), utils.TranslateBizInfosToContainerStatuses(data.GenericArkResponseBase.Data, time.Now().UnixMilli()))
 	}
 }
 
 // bizOperationResponseCallback is the callback function for business operation responses
-func (h *HttpTunnel) bizOperationResponseCallback(nodeID string, data model.BizOperationResponse) {
-	logger := zaplogger.FromContext(h.ctx)
+func (httpTunnel *HttpTunnel) bizOperationResponseCallback(nodeID string, data model.BizOperationResponse) {
+	logger := zaplogger.FromContext(httpTunnel.ctx)
+	nodeName := utils2.FormatNodeName(nodeID, httpTunnel.env)
 	if data.Response.Code == "SUCCESS" {
 		if data.Command == model.CommandInstallBiz {
-			// not update here, update in all biz response callback
+			logger.Info("install biz success: ", data.BizName, data.BizVersion)
+			httpTunnel.onOneBizDataArrived(nodeName, vkModel.BizStatusData{
+				Key:        utils.GetBizIdentity(data.BizName, data.BizVersion),
+				Name:       data.BizName,
+				State:      string(vkModel.BizStateActivated),
+				ChangeTime: time.Now(),
+				Reason:     fmt.Sprintf("%s:%s %s succeed", data.BizName, data.BizVersion, data.Command),
+				Message:    data.Response.Data.Message,
+			})
 			return
+		} else {
+			logger.Error(nil, fmt.Sprintf("biz operation failed: %s\n", data.Response))
 		}
-	} else {
-		// operation failed, log
-		logger.Error(nil, "biz operation failed: %s\n%s\n%s", data.Response.Message, data.Response.ErrorStackTrace, data.Response.Data.Message)
 	}
-
-	h.onOneBizDataArrived(utils2.FormatNodeName(nodeID, h.env), vkModel.BizStatusData{
+	httpTunnel.onOneBizDataArrived(nodeName, vkModel.BizStatusData{
 		Key:  utils.GetBizIdentity(data.BizName, data.BizVersion),
 		Name: data.BizName,
 		// fille PodKey when using
