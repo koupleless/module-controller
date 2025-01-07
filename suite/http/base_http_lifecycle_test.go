@@ -17,12 +17,15 @@ var _ = Describe("Base Lifecycle Test", func() {
 
 	ctx := context.Background()
 
+	// NOTICE: nodeId should be unique in suite test to avoid incorrect vnode handling pod or deployment.
+	nodeId := "http-base-for-base-test"
 	clusterName := "test-cluster-name"
-	httpNodeID := "test-http-base"
-	mockHttpBase := NewMockHttpBase(httpNodeID, clusterName, "1.0.0", env, 1238)
+	// NOTICE: port should be unique in suite test to avoid incorrect base handling request.
+	mockHttpBase := NewMockHttpBase(nodeId, clusterName, "1.0.0", env, 1237)
 
+	// NOTICE: if test cases will contaminate each other, the cases should add `Serial` keyword in ginkgo
 	Context("http base online and deactive finally", func() {
-		It("base should become a ready vnode eventually", func() {
+		It("base should become a ready vnode eventually", Serial, func() {
 			time.Sleep(time.Second)
 
 			go mockHttpBase.Start(ctx, clientID)
@@ -30,7 +33,7 @@ var _ = Describe("Base Lifecycle Test", func() {
 			Eventually(func() bool {
 				lease := &v12.Lease{}
 				err := k8sClient.Get(ctx, types.NamespacedName{
-					Name:      utils.FormatNodeName(httpNodeID, env),
+					Name:      utils.FormatNodeName(nodeId, env),
 					Namespace: v1.NamespaceNodeLease,
 				}, lease)
 
@@ -44,7 +47,7 @@ var _ = Describe("Base Lifecycle Test", func() {
 			Eventually(func() bool {
 				vnode := &v1.Node{}
 				err := k8sClient.Get(ctx, types.NamespacedName{
-					Name: utils.FormatNodeName(httpNodeID, env),
+					Name: utils.FormatNodeName(nodeId, env),
 				}, vnode)
 				vnodeReady := false
 				for _, cond := range vnode.Status.Conditions {
@@ -57,25 +60,25 @@ var _ = Describe("Base Lifecycle Test", func() {
 			}, time.Second*50, time.Second).Should(BeTrue())
 		})
 
-		It("base offline with deactive message and finally exit", func() {
+		It("base offline with deactive message and finally exit", Serial, func() {
 			mockHttpBase.Exit()
 			Eventually(func() bool {
 				vnode := &v1.Node{}
 				err := k8sClient.Get(ctx, types.NamespacedName{
-					Name: utils.FormatNodeName(httpNodeID, env),
+					Name: utils.FormatNodeName(nodeId, env),
 				}, vnode)
 				return errors.IsNotFound(err)
 			}, time.Second*50, time.Second).Should(BeTrue())
 		})
 
-		It("base should become a ready vnode eventually", func() {
+		It("base should become a ready vnode eventually", Serial, func() {
 			time.Sleep(time.Second)
 
 			go mockHttpBase.Start(ctx, clientID)
 			vnode := &v1.Node{}
 			Eventually(func() bool {
 				err := k8sClient.Get(ctx, types.NamespacedName{
-					Name: utils.FormatNodeName(httpNodeID, env),
+					Name: utils.FormatNodeName(nodeId, env),
 				}, vnode)
 				vnodeReady := false
 				for _, cond := range vnode.Status.Conditions {
@@ -88,25 +91,25 @@ var _ = Describe("Base Lifecycle Test", func() {
 			}, time.Second*50, time.Second).Should(BeTrue())
 		})
 
-		It("base unreachable finally exit", func() {
+		It("base unreachable finally exit", Serial, func() {
 			mockHttpBase.reachable = false
 			Eventually(func() bool {
 				vnode := &v1.Node{}
 				err := k8sClient.Get(ctx, types.NamespacedName{
-					Name: utils.FormatNodeName(httpNodeID, env),
+					Name: utils.FormatNodeName(nodeId, env),
 				}, vnode)
 				return errors.IsNotFound(err)
 			}, time.Minute*2, time.Second).Should(BeTrue())
 		})
 
-		It("reachable base should become a ready vnode eventually", func() {
+		It("reachable base should become a ready vnode eventually", Serial, func() {
 			time.Sleep(time.Second)
 			mockHttpBase.reachable = true
 			go mockHttpBase.Start(ctx, clientID)
 			vnode := &v1.Node{}
 			Eventually(func() bool {
 				err := k8sClient.Get(ctx, types.NamespacedName{
-					Name: utils.FormatNodeName(httpNodeID, env),
+					Name: utils.FormatNodeName(nodeId, env),
 				}, vnode)
 				vnodeReady := false
 				for _, cond := range vnode.Status.Conditions {
@@ -119,13 +122,13 @@ var _ = Describe("Base Lifecycle Test", func() {
 			}, time.Second*50, time.Second).Should(BeTrue())
 		})
 
-		It("base finally exit", func() {
+		It("base finally exit", Serial, func() {
 			mockHttpBase.Exit()
 
 			Eventually(func() bool {
 				vnode := &v1.Node{}
 				err := k8sClient.Get(ctx, types.NamespacedName{
-					Name: utils.FormatNodeName(httpNodeID, env),
+					Name: utils.FormatNodeName(nodeId, env),
 				}, vnode)
 				return errors.IsNotFound(err)
 			}, time.Second*50, time.Second).Should(BeTrue())

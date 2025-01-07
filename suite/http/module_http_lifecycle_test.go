@@ -15,15 +15,17 @@ var _ = Describe("Module Lifecycle Test", func() {
 
 	ctx := context.Background()
 
-	nodeID := "test-http-base"
+	// NOTICE: nodeId should be unique in suite test to avoid incorrect vnode handling pod or deployment.
+	nodeID := "http-base-for-module-test"
 	clusterName := "test-cluster-name"
-
+	// NOTICE: port should be unique in suite test to avoid incorrect base handling request.
 	mockBase := NewMockHttpBase(nodeID, clusterName, "1.0.0", env, 1238)
 
 	mockModulePod := prepareModulePod("test-module", "default", utils.FormatNodeName(nodeID, env))
 
-	Context("pod install", func() {
-		It("base should become a ready vnode eventually", func() {
+	// NOTICE: if test cases will contaminate each other, the cases should add `Serial` keyword in ginkgo
+	Context("pod install", Serial, func() {
+		It("base should become a ready vnode eventually", Serial, func() {
 			go mockBase.Start(ctx, clientID)
 			Eventually(func() bool {
 				vnode := &v1.Node{}
@@ -41,7 +43,7 @@ var _ = Describe("Module Lifecycle Test", func() {
 			}, time.Second*20, time.Second).Should(BeTrue())
 		})
 
-		It("publish a module pod and it should be running", func() {
+		It("publish a module pod and it should be pending", Serial, func() {
 			err := k8sClient.Create(ctx, &mockModulePod)
 			Expect(err).To(BeNil())
 			Eventually(func() bool {
@@ -50,14 +52,14 @@ var _ = Describe("Module Lifecycle Test", func() {
 					Namespace: mockModulePod.Namespace,
 					Name:      mockModulePod.Name,
 				}, podFromKubernetes)
-				return err == nil && podFromKubernetes.Status.Phase == v1.PodRunning
+				return err == nil && podFromKubernetes.Status.Phase == v1.PodPending && podFromKubernetes.Spec.NodeName == utils.FormatNodeName(nodeID, env)
 			}, time.Second*20, time.Second).Should(BeTrue())
 			Eventually(func() bool {
 				return len(mockBase.BizInfos) == 1
 			}, time.Second*20, time.Second).Should(BeTrue())
 		})
 
-		It("delete pod, all modules should deactivated, pod should finally deleted from k8s", func() {
+		It("delete pod, all modules should deactivated, pod should finally deleted from k8s", Serial, func() {
 			err := k8sClient.Delete(ctx, &mockModulePod)
 			Expect(err).To(BeNil())
 			Eventually(func() bool {
@@ -70,7 +72,7 @@ var _ = Describe("Module Lifecycle Test", func() {
 			}, time.Second*40, time.Second).Should(BeTrue())
 		})
 
-		It("base offline with deactive message and finally exit", func() {
+		It("base offline with deactive message and finally exit", Serial, func() {
 			mockBase.Exit()
 			Eventually(func() bool {
 				vnode := &v1.Node{}
