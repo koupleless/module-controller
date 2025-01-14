@@ -227,7 +227,6 @@ func (h *HttpTunnel) allBizMsgCallback(nodeID string, data ark_service.QueryAllB
 		return
 	}
 	if h.onQueryAllBizDataArrived != nil {
-		fmt.Println("allBizMsgCallback!")
 		h.onQueryAllBizDataArrived(utils2.FormatNodeName(nodeID, h.env), utils.TranslateBizInfosToContainerStatuses(data.GenericArkResponseBase.Data, time.Now().UnixMilli()))
 	}
 }
