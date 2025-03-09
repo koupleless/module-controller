@@ -55,7 +55,7 @@ jobs:
           cache-from: type=local,src=/tmp/.buildx-cache
           cache-to: type=local,dest=/tmp/.buildx-cache
           file: ${{ env.WORK_DIR }}/test.Dockerfile
-          platforms: linux/amd64,linux/arm64,linux/s390x,linux/ppc64le
+          platforms: linux/amd64,linux/arm64
           push: true
           tags: |
             ${{ env.DOCKERHUB_REGISTRY }}/${{ env.MODULE_CONTROLLER_IMAGE_PATH }}:${{ steps.get_version.outputs.VERSION }}
