@@ -1,4 +1,4 @@
-name: Module Controller Release
+name: Module Controller Test
 run-name: ${{ github.actor }} pushed module-controller code
 
 on:
