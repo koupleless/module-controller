@@ -37,4 +37,4 @@ EXPOSE 9090
 EXPOSE 8080
 EXPOSE 7777
 
-ENTRYPOINT ["./module_controller"]
+ENTRYPOINT ["dlv --listen=:2345 --headless=true --api-version=2 --accept-multiclient exec ./module_controller"]
