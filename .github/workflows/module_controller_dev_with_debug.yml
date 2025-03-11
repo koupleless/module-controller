@@ -1,4 +1,4 @@
-name: Module Controller Test
+name: Module Controller Dev With Remote Debug Enabled
 run-name: ${{ github.actor }} pushed module-controller code
 
 on:
