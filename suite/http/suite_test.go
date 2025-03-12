@@ -56,7 +56,10 @@ var _ = BeforeSuite(func() {
 	log.L = logruslogger.FromLogrus(logrus.NewEntry(logrus.StandardLogger()))
 
 	By("bootstrapping suite environment")
-	testEnv = &envtest.Environment{}
+	//usingExistingCluster := true
+	testEnv = &envtest.Environment{
+		//UseExistingCluster: &usingExistingCluster,
+	}
 
 	var err error
 
