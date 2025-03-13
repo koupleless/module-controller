@@ -249,6 +249,7 @@ func (httpTunnel *HttpTunnel) bizOperationResponseCallback(nodeID string, data m
 			return
 		} else if data.Command == model.CommandUnInstallBiz {
 			logger.Info("uninstall biz success: ", data.BizName, data.BizVersion)
+			return
 		} else {
 			logger.Error(nil, fmt.Sprintf("biz operation failed: %s:%s %s\n%s\n%s\n%s", data.BizName, data.BizVersion, data.Command, data.Response.Message, data.Response.ErrorStackTrace, data.Response.Data.Message))
 		}
