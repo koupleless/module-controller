@@ -32,6 +32,17 @@ buildx: fmt vet
 build: fmt vet
 	docker build -t serverless-registry.cn-shanghai.cr.aliyuncs.com/opensource/test/module_controller:latest .
 
+.PHONY: minikube-delete
+minikube-delete: ## Delete module-controller deployment from minikube
+	kubectl delete deployments.apps/module-controller || true
+	kubectl wait --for=delete pod -l app=module-controller --timeout=90s
+
+.PHONY: minikube-debug
+minikube-debug: fmt vet minikube-delete ## Build and deploy debug version using minikube
+	minikube image rm serverless-registry.cn-shanghai.cr.aliyuncs.com/opensource/test/module-controller-v2:latest
+	minikube image build -f debug.Dockerfile -t serverless-registry.cn-shanghai.cr.aliyuncs.com/opensource/test/module-controller-v2:latest .
+	kubectl apply -f example/quick-start/module-controller-test.yaml
+
 ##@ Deployment
 
 ifndef ignore-not-found
@@ -74,3 +85,4 @@ $(CONTROLLER_GEN): $(LOCALBIN)
 envtest: $(ENVTEST) ## Download envtest-setup locally if necessary.
 $(ENVTEST): $(LOCALBIN)
 	test -s $(LOCALBIN)/setup-envtest || GOBIN=$(LOCALBIN) go install sigs.k8s.io/controller-runtime/tools/setup-envtest@latest
+
