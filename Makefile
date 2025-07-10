@@ -37,10 +37,13 @@ minikube-delete: ## Delete module-controller deployment from minikube
 	kubectl delete deployments.apps/module-controller || true
 	kubectl wait --for=delete pod -l app=module-controller --timeout=90s
 
-.PHONY: minikube-debug-build
-minikube-debug-build: fmt vet minikube-delete ## Build and deploy debug version using minikube
+.PHONY: minikube-build
+minikube-build: fmt vet minikube-delete ## Build debug version using minikube
 	minikube image rm serverless-registry.cn-shanghai.cr.aliyuncs.com/opensource/test/module-controller-v2:latest
 	minikube image build -f debug.Dockerfile -t serverless-registry.cn-shanghai.cr.aliyuncs.com/opensource/test/module-controller-v2:latest .
+
+.PHONY: minikube-deploy
+minikube-deploy: ## Deploy module-controller to minikube
 	kubectl apply -f example/quick-start/module-controller-test.yaml
 	kubectl wait --for=condition=available --timeout=90s deployments/module-controller
 
@@ -51,6 +54,9 @@ minikube-debug:
 .PHONY: minikube-port-forward
 minikube-port-forward:
 	kubectl port-forward deployments/module-controller 2345:2345
+
+.PHONY: minikube-restart
+minikube-restart: minikube-build minikube-deploy minikube-debug
 
 ##@ Deployment
 
