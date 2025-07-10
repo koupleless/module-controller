@@ -42,4 +42,5 @@ EXPOSE 8080
 EXPOSE 7777
 EXPOSE 2345
 
-ENTRYPOINT ["dlv", "--listen=:2345", "--headless=true", "--api-version=2", "--accept-multiclient", "exec", "./module_controller"]
+#ENTRYPOINT ["dlv --listen=:2345 --headless=true --api-version=2 --accept-multiclient exec ./module_controller"]
+CMD ["/bin/sh", "-c", "tail -f /dev/null"]
