@@ -17,6 +17,7 @@ spec:
         - name: module-controller
           image: serverless-registry.cn-shanghai.cr.aliyuncs.com/opensource/test/module-controller-v2:latest # 自己构建打包好的镜像
           imagePullPolicy: Never
+          # imagePullPolicy: Always # 如果使用远程仓库的镜像，改为 Always
           resources:
             limits:
               cpu: "1000m"
