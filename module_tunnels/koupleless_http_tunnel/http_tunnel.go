@@ -324,7 +324,7 @@ func (h *HttpTunnel) QueryAllBizStatusData(nodeName string) error {
 }
 
 // StartBiz starts a container on the node
-func (h *HttpTunnel) StartBiz(nodeName, _ string, container *corev1.Container) error {
+func (h *HttpTunnel) StartBiz(nodeName, podKey string, container *corev1.Container) error {
 
 	nodeID := utils2.ExtractNodeIDFromNodeName(nodeName)
 	h.Lock()
@@ -335,14 +335,16 @@ func (h *HttpTunnel) StartBiz(nodeName, _ string, container *corev1.Container) e
 	}
 
 	bizModel := utils.TranslateCoreV1ContainerToBizModel(container)
+	bizModel.BizModelVersion = podKey
 	logger := zaplogger.FromContext(h.ctx).WithValues("bizName", bizModel.BizName, "bizVersion", bizModel.BizVersion)
 	logger.Info("InstallModule")
 
 	// install current version
 	bizOperationResponse := model.BizOperationResponse{
-		Command:    model.CommandInstallBiz,
-		BizName:    bizModel.BizName,
-		BizVersion: bizModel.BizVersion,
+		Command:         model.CommandInstallBiz,
+		BizName:         bizModel.BizName,
+		BizVersion:      bizModel.BizVersion,
+		BizModelVersion: podKey,
 	}
 
 	response, err := h.arkService.InstallBiz(h.ctx, ark_service.InstallBizRequest{
@@ -357,7 +359,7 @@ func (h *HttpTunnel) StartBiz(nodeName, _ string, container *corev1.Container) e
 }
 
 // StopBiz shuts down a container on the node
-func (h *HttpTunnel) StopBiz(nodeName, _ string, container *corev1.Container) error {
+func (h *HttpTunnel) StopBiz(nodeName, podKey string, container *corev1.Container) error {
 	nodeID := utils2.ExtractNodeIDFromNodeName(nodeName)
 	h.Lock()
 	baseStatus, ok := h.nodeIdToBaseStatusMap[nodeID]
@@ -367,13 +369,15 @@ func (h *HttpTunnel) StopBiz(nodeName, _ string, container *corev1.Container) er
 	}
 
 	bizModel := utils.TranslateCoreV1ContainerToBizModel(container)
+	bizModel.BizModelVersion = podKey
 	logger := zaplogger.FromContext(h.ctx).WithValues("bizName", bizModel.BizName, "bizVersion", bizModel.BizVersion)
 	logger.Info("UninstallModule")
 
 	bizOperationResponse := model.BizOperationResponse{
-		Command:    model.CommandUnInstallBiz,
-		BizName:    bizModel.BizName,
-		BizVersion: bizModel.BizVersion,
+		Command:         model.CommandUnInstallBiz,
+		BizName:         bizModel.BizName,
+		BizVersion:      bizModel.BizVersion,
+		BizModelVersion: podKey,
 	}
 
 	response, err := h.arkService.UninstallBiz(h.ctx, ark_service.UninstallBizRequest{
