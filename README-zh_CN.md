@@ -1,3 +1,13 @@
+<div align="center">
+
+[English](./README.md) | 简体中文
+
+</div>
+
+# Module Controller
+
+[![codecov](https://codecov.io/github/koupleless/module-controller/graph/badge.svg?token=L1SvoSDQsw)](https://codecov.io/github/koupleless/module-controller)
+
 低成本地让开源用户接入模块运维体系。
 
 # 架构设计
