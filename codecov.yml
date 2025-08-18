@@ -1,0 +1,22 @@
+comment:
+  layout: "reach, diff, flags, files"
+  behavior: new            # Only consider new coverage, not historical
+  require_changes: false   # Do not require code changes for coverage checks
+  require_base: false      # Do not require base branch coverage
+  require_head: true       # Require head branch coverage
+
+coverage:
+  ignore:
+    - 'vendor/**'
+    - '**/*_generated.go'
+    - '**/zz_generated.*'
+    - '**/mock_*.go'
+  status:
+    project:
+      default:
+        target: auto # Automatically determine target coverage based on project history
+        threshold: 2%  # Allowed fluctuation range
+    patch:
+      default:
+        target: 80%    # New/changed lines coverage target
+        threshold: 1%  # Allowed fluctuation range
