@@ -33,7 +33,6 @@ func (f *PodHandler) AttachPodRoutes(mux *http.ServeMux) {
 	mux.Handle("/", api.PodHandler(api.PodHandlerConfig{
 		GetContainerLogs: f.getContainerLogs,
 	}, true))
-	return
 }
 
 func (f *PodHandler) getContainerLogs(

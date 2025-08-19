@@ -6,9 +6,14 @@ import (
 	"errors"
 	"fmt"
 	"net/http"
+	"time"
 
 	"github.com/virtual-kubelet/virtual-kubelet/log"
 	"k8s.io/client-go/kubernetes"
+)
+
+const (
+	DefaultHeaderRequestTimeout = 10 * time.Second
 )
 
 // StartKubeletProxy initializes and starts the kubelet proxy server.
@@ -32,9 +37,10 @@ func StartKubeletProxy(
 	proxy.AttachPodRoutes(mux)
 
 	srv := &http.Server{
-		Addr:      listenAddr,
-		Handler:   mux,
-		TLSConfig: tlsConfig,
+		Addr:              listenAddr,
+		Handler:           mux,
+		TLSConfig:         tlsConfig,
+		ReadHeaderTimeout: DefaultHeaderRequestTimeout,
 	}
 
 	go func() {
