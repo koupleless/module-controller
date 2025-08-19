@@ -96,6 +96,7 @@ func (f *PodHandler) lookupBasePod(ctx context.Context, namespace, vPodName stri
 			return nil, apierrors.NewNotFound(corev1.Resource("pods"), vPodName)
 		}
 		log.L.Errorf("Fail to pod %s in namespace %s: %v", vPodName, namespace, err)
+		return nil, err
 	}
 
 	vNodeName := vPod.Spec.NodeName

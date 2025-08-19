@@ -118,8 +118,6 @@ func TestPodHandler_AttachPodRoutes(t *testing.T) {
 	})
 
 	t.Run("n: base pod not found", func(t *testing.T) {
-		vNodeCopy := vNode.DeepCopy()
-		vNodeCopy.Labels[vkModel.LabelKeyOfBaseHostName] = "nonexistent-base-pod"
 		clientSet := fake.NewClientset(vPod, vNode)
 
 		handler, err := NewPodHandler(clientSet)
