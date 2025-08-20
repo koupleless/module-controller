@@ -32,6 +32,32 @@ buildx: fmt vet
 build: fmt vet
 	docker build -t serverless-registry.cn-shanghai.cr.aliyuncs.com/opensource/test/module_controller:latest .
 
+.PHONY: minikube-delete
+minikube-delete: ## Delete module-controller deployment from minikube
+	kubectl delete deployments.apps/module-controller || true
+	kubectl wait --for=delete pod -l app=module-controller --timeout=90s
+
+.PHONY: minikube-build
+minikube-build: fmt vet minikube-delete ## Build debug version using minikube
+	minikube image rm serverless-registry.cn-shanghai.cr.aliyuncs.com/opensource/test/module-controller-v2:latest
+	minikube image build -f debug.Dockerfile -t serverless-registry.cn-shanghai.cr.aliyuncs.com/opensource/test/module-controller-v2:latest .
+
+.PHONY: minikube-deploy
+minikube-deploy: ## Deploy module-controller to minikube
+	kubectl apply -f example/quick-start/module-controller-test.yaml
+	kubectl wait --for=condition=available --timeout=90s deployments/module-controller
+
+.PHONY: minikube-debug
+minikube-debug:
+	kubectl exec deployments/module-controller -it -- dlv --listen=:2345 --headless=true --api-version=2 --accept-multiclient exec ./module_controller
+
+.PHONY: minikube-port-forward
+minikube-port-forward:
+	kubectl port-forward deployments/module-controller 2345:2345
+
+.PHONY: minikube-restart
+minikube-restart: minikube-build minikube-deploy minikube-debug
+
 ##@ Deployment
 
 ifndef ignore-not-found
@@ -74,3 +100,4 @@ $(CONTROLLER_GEN): $(LOCALBIN)
 envtest: $(ENVTEST) ## Download envtest-setup locally if necessary.
 $(ENVTEST): $(LOCALBIN)
 	test -s $(LOCALBIN)/setup-envtest || GOBIN=$(LOCALBIN) go install sigs.k8s.io/controller-runtime/tools/setup-envtest@latest
+

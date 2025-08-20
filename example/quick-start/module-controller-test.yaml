@@ -1,24 +1,32 @@
-apiVersion: v1
-kind: Pod
+apiVersion: apps/v1
+kind: Deployment
 metadata:
   name: module-controller
-  labels:
-    app: module-controller
 spec:
-  serviceAccountName: virtual-kubelet # 上一步中配置好的 Service Account
-  containers:
-    - name: module-controller
-      image: serverless-registry.cn-shanghai.cr.aliyuncs.com/opensource/test/module-controller-v2:v2.1.2 # 已经打包好的镜像
-      imagePullPolicy: Always
-      resources:
-        limits:
-          cpu: "1000m"
-          memory: "400Mi"
-      ports:
-        - name: httptunnel
-          containerPort: 7777
-        - name: debug
-          containerPort: 2345
-      env:
-        - name: ENABLE_HTTP_TUNNEL
-          value: "true"
+  replicas: 1
+  selector:
+    matchLabels:
+      app: module-controller
+  template:
+    metadata:
+      labels:
+        app: module-controller
+    spec:
+      serviceAccountName: virtual-kubelet # 上一步中配置好的 Service Account
+      containers:
+        - name: module-controller
+          image: serverless-registry.cn-shanghai.cr.aliyuncs.com/opensource/test/module-controller-v2:latest # 自己构建打包好的镜像
+          imagePullPolicy: Never
+          # imagePullPolicy: Always # 如果使用远程仓库的镜像，改为 Always
+          resources:
+            limits:
+              cpu: "1000m"
+              memory: "400Mi"
+          ports:
+            - name: httptunnel
+              containerPort: 7777
+            - name: debug
+              containerPort: 2345
+          env:
+            - name: ENABLE_HTTP_TUNNEL
+              value: "true"
