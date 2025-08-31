@@ -14,6 +14,28 @@ const (
 	LabelKeyOfSkipReplicasControl = "virtual-kubelet.koupleless.io/replicas-control"
 	// LabelKeyOfVPodDeploymentStrategy specifies the deployment strategy
 	LabelKeyOfVPodDeploymentStrategy = "virtual-kubelet.koupleless.io/strategy"
+	// LabelKeyOfKubeletProxyService indicates the kubelet proxy service
+	LabelKeyOfKubeletProxyService = "virtual-kubelet.koupleless.io/kubelet-proxy-service"
+)
+
+// Env keys for module controller
+const (
+	// EnvKeyOfClientID is the environment variable key for the client ID
+	EnvKeyOfClientID = "CLIENT_ID"
+	// EnvKeyOfNamespace is the environment variable key for the deployment namespace, default to "default"
+	EnvKeyOfNamespace = "NAMESPACE"
+	// EnvKeyOfENV is the environment variable key for the environment label
+	EnvKeyOfENV = "ENV"
+	// EnvKeyOfClusterModeEnabled is the environment variable key for the cluster flag, use "true" or "false"
+	EnvKeyOfClusterModeEnabled = "IS_CLUSTER"
+	// EnvKeyOfWorkloadMaxLevel is the environment variable key for the maximum workload level
+	EnvKeyOfWorkloadMaxLevel = "WORKLOAD_MAX_LEVEL"
+	// EnvKeyOfVNodeWorkerNum is the environment variable key for the number of vnode worker threads
+	EnvKeyOfVNodeWorkerNum = "VNODE_WORKER_NUM"
+	// EnvKeyOfKubeletProxyEnabled is the environment variable key for enabling kubelet proxy
+	EnvKeyOfKubeletProxyEnabled = "KUBELET_PROXY_ENABLED"
+	// EnvKeyOfKubeletProxyPort is the environment variable key for the kubelet proxy port
+	EnvKeyOfKubeletProxyPort = "KUBELET_PROXY_PORT"
 )
 
 // Component types
