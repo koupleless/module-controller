@@ -434,7 +434,7 @@ func (mqttTunnel *MqttTunnel) QueryAllBizStatusData(nodeName string) error {
 func (mqttTunnel *MqttTunnel) StartBiz(nodeName, podKey string, container *corev1.Container) error {
 	bizModel := utils.TranslateCoreV1ContainerToBizModel(container)
 	bizModel.BizModelVersion = podKey
-	zlogger := zaplogger.FromContext(mqttTunnel.ctx).WithValues("bizName", bizModel.BizName, "bizVersion", bizModel.BizVersion)
+	zlogger := zaplogger.FromContext(mqttTunnel.ctx).WithValues("bizName", bizModel.BizName, "bizVersion", bizModel.BizVersion, "bizModelVersion", bizModel.BizModelVersion)
 	zlogger.Info("InstallModule")
 	installBizRequestBytes, _ := json.Marshal(ark_service.InstallBizRequest{
 		BizModel: bizModel,
@@ -449,7 +449,7 @@ func (mqttTunnel *MqttTunnel) StopBiz(nodeName, podKey string, container *corev1
 	unInstallBizRequestBytes, _ := json.Marshal(ark_service.UninstallBizRequest{
 		BizModel: bizModel,
 	})
-	zlogger := zaplogger.FromContext(mqttTunnel.ctx).WithValues("bizName", bizModel.BizName, "bizVersion", bizModel.BizVersion)
+	zlogger := zaplogger.FromContext(mqttTunnel.ctx).WithValues("bizName", bizModel.BizName, "bizVersion", bizModel.BizVersion, "bizModelVersion", bizModel.BizModelVersion)
 	zlogger.Info("UninstallModule")
 	nodeID := utils2.ExtractNodeIDFromNodeName(nodeName)
 	return mqttTunnel.mqttClient.Pub(utils.FormatArkletCommandTopic(mqttTunnel.env, nodeID, model.CommandUnInstallBiz), mqtt.Qos0, unInstallBizRequestBytes)

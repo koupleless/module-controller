@@ -336,7 +336,7 @@ func (h *HttpTunnel) StartBiz(nodeName, podKey string, container *corev1.Contain
 
 	bizModel := utils.TranslateCoreV1ContainerToBizModel(container)
 	bizModel.BizModelVersion = podKey
-	logger := zaplogger.FromContext(h.ctx).WithValues("bizName", bizModel.BizName, "bizVersion", bizModel.BizVersion)
+	logger := zaplogger.FromContext(h.ctx).WithValues("bizName", bizModel.BizName, "bizVersion", bizModel.BizVersion, "bizModelVersion", bizModel.BizModelVersion)
 	logger.Info("InstallModule")
 
 	// install current version
@@ -370,7 +370,7 @@ func (h *HttpTunnel) StopBiz(nodeName, podKey string, container *corev1.Containe
 
 	bizModel := utils.TranslateCoreV1ContainerToBizModel(container)
 	bizModel.BizModelVersion = podKey
-	logger := zaplogger.FromContext(h.ctx).WithValues("bizName", bizModel.BizName, "bizVersion", bizModel.BizVersion)
+	logger := zaplogger.FromContext(h.ctx).WithValues("bizName", bizModel.BizName, "bizVersion", bizModel.BizVersion, "bizModelVersion", bizModel.BizModelVersion)
 	logger.Info("UninstallModule")
 
 	bizOperationResponse := model.BizOperationResponse{
