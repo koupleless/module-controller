@@ -86,6 +86,9 @@ func main() {
 
 	// Get configuration from environment variables
 	clientID := utils.GetEnv(model.EnvKeyOfClientID, uuid.New().String())
+	if _, ok := os.LookupEnv(model.EnvKeyOfClientID); !ok {
+		log.L.Infof("Randomly generated client ID: %s", clientID)
+	}
 	env := utils.GetEnv("ENV", "dev")
 
 	zlogger := zaplogger.GetLogger()
