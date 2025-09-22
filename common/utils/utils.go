@@ -3,10 +3,11 @@ package utils
 import (
 	"context"
 	"fmt"
-	"github.com/koupleless/module_controller/common/zaplogger"
 	"strconv"
 	"strings"
 	"time"
+
+	"github.com/koupleless/module_controller/common/zaplogger"
 
 	"github.com/koupleless/arkctl/common/fileutil"
 	"github.com/koupleless/arkctl/v1/service/ark"
@@ -112,6 +113,7 @@ func ConvertHealthDataToNodeStatus(data ark.HealthData) vkModel.NodeStatusData {
 	resourceMap[corev1.ResourceMemory] = memory
 	return vkModel.NodeStatusData{
 		Resources: resourceMap,
+		NodeState: vkModel.NodeState(strings.ToUpper(data.MasterBizInfo.BizState)),
 	}
 }
 
@@ -133,7 +135,7 @@ func TranslateBizInfosToContainerStatuses(data []ark.ArkBizInfo, changeTimestamp
 			Key:  GetBizIdentity(bizInfo.BizName, bizInfo.BizVersion),
 			Name: bizInfo.BizName,
 			// fille PodKey when using
-			//PodKey:     vkModel.PodKeyAll,
+			// PodKey:     vkModel.PodKeyAll,
 			State: bizInfo.BizState,
 			// TODO: 需要使用实际 bizState 变化的时间，而非心跳时间
 			ChangeTime: time.UnixMilli(changeTimestamp),
