@@ -31,10 +31,11 @@ type BaseStatus struct {
 
 // BizOperationResponse represents the response from a business operation
 type BizOperationResponse struct {
-	Command    string                                       `json:"command"`    // Operation command executed
-	BizName    string                                       `json:"bizName"`    // ClusterName of the business
-	BizVersion string                                       `json:"bizVersion"` // Version of the business
-	Response   ark_service.ArkResponse[ark.ArkResponseData] `json:"response"`   // Response from ark service
+	Command         string                                       `json:"command"`         // Operation command executed
+	BizName         string                                       `json:"bizName"`         // ClusterName of the business
+	BizVersion      string                                       `json:"bizVersion"`      // Version of the business
+	BizModelVersion string                                       `json:"bizModelVersion"` // Pod key (podKey) used for aligning module state with Kubernetes pod state to prevent old uninstall requests from removing new modules. Format: {bizName}-{template}-{randomString} (e.g., biz1-web-single-host-786dfc476f-x2hwk)
+	Response        ark_service.ArkResponse[ark.ArkResponseData] `json:"response"`        // Response from ark service
 }
 
 type BatchInstallBizResponse struct {
