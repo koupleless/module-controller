@@ -326,7 +326,6 @@ func (h *HttpTunnel) QueryAllBizStatusData(nodeName string) error {
 
 // StartBiz starts a container on the node
 func (h *HttpTunnel) StartBiz(nodeName, podKey string, container *corev1.Container) error {
-
 	nodeID := utils2.ExtractNodeIDFromNodeName(nodeName)
 	h.Lock()
 	baseStatus, ok := h.nodeIdToBaseStatusMap[nodeID]
