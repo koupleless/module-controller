@@ -5,12 +5,17 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"strings"
+	"sync"
+	"time"
+
 	paho "github.com/eclipse/paho.mqtt.golang"
 	"github.com/koupleless/arkctl/v1/service/ark"
 	"github.com/koupleless/module_controller/common/model"
 	"github.com/koupleless/module_controller/common/utils"
 	"github.com/koupleless/module_controller/common/zaplogger"
 	"github.com/koupleless/module_controller/controller/module_deployment_controller"
+	"github.com/koupleless/module_controller/module_tunnels/koupleless_http_tunnel/ark_service"
 	"github.com/koupleless/module_controller/module_tunnels/koupleless_mqtt_tunnel/mqtt"
 	utils2 "github.com/koupleless/virtual-kubelet/common/utils"
 	vkModel "github.com/koupleless/virtual-kubelet/model"
@@ -18,9 +23,6 @@ import (
 	"github.com/virtual-kubelet/virtual-kubelet/log"
 	corev1 "k8s.io/api/core/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
-	"strings"
-	"sync"
-	"time"
 )
 
 var _ tunnel.Tunnel = &MqttTunnel{}
@@ -429,19 +431,25 @@ func (mqttTunnel *MqttTunnel) QueryAllBizStatusData(nodeName string) error {
 	return mqttTunnel.mqttClient.Pub(utils.FormatArkletCommandTopic(mqttTunnel.env, nodeID, model.CommandQueryAllBiz), mqtt.Qos0, []byte("{}"))
 }
 
-func (mqttTunnel *MqttTunnel) StartBiz(nodeName, _ string, container *corev1.Container) error {
+func (mqttTunnel *MqttTunnel) StartBiz(nodeName, podKey string, container *corev1.Container) error {
 	bizModel := utils.TranslateCoreV1ContainerToBizModel(container)
-	zlogger := zaplogger.FromContext(mqttTunnel.ctx).WithValues("bizName", bizModel.BizName, "bizVersion", bizModel.BizVersion)
+	bizModel.BizModelVersion = podKey
+	zlogger := zaplogger.FromContext(mqttTunnel.ctx).WithValues("bizName", bizModel.BizName, "bizVersion", bizModel.BizVersion, "bizModelVersion", bizModel.BizModelVersion)
 	zlogger.Info("InstallModule")
-	installBizRequestBytes, _ := json.Marshal(bizModel)
+	installBizRequestBytes, _ := json.Marshal(ark_service.InstallBizRequest{
+		BizModel: bizModel,
+	})
 	nodeID := utils2.ExtractNodeIDFromNodeName(nodeName)
 	return mqttTunnel.mqttClient.Pub(utils.FormatArkletCommandTopic(mqttTunnel.env, nodeID, model.CommandInstallBiz), mqtt.Qos0, installBizRequestBytes)
 }
 
-func (mqttTunnel *MqttTunnel) StopBiz(nodeName, _ string, container *corev1.Container) error {
+func (mqttTunnel *MqttTunnel) StopBiz(nodeName, podKey string, container *corev1.Container) error {
 	bizModel := utils.TranslateCoreV1ContainerToBizModel(container)
-	unInstallBizRequestBytes, _ := json.Marshal(bizModel)
-	zlogger := zaplogger.FromContext(mqttTunnel.ctx).WithValues("bizName", bizModel.BizName, "bizVersion", bizModel.BizVersion)
+	bizModel.BizModelVersion = podKey
+	unInstallBizRequestBytes, _ := json.Marshal(ark_service.UninstallBizRequest{
+		BizModel: bizModel,
+	})
+	zlogger := zaplogger.FromContext(mqttTunnel.ctx).WithValues("bizName", bizModel.BizName, "bizVersion", bizModel.BizVersion, "bizModelVersion", bizModel.BizModelVersion)
 	zlogger.Info("UninstallModule")
 	nodeID := utils2.ExtractNodeIDFromNodeName(nodeName)
 	return mqttTunnel.mqttClient.Pub(utils.FormatArkletCommandTopic(mqttTunnel.env, nodeID, model.CommandUnInstallBiz), mqtt.Qos0, unInstallBizRequestBytes)
