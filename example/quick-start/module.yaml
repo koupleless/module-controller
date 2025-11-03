@@ -1,23 +1,26 @@
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: biz1
+  name: biz1-web-single-host
   labels:
     virtual-kubelet.koupleless.io/component: module-deployment
 spec:
   replicas: 1
   selector:
     matchLabels:
-      module: biz1
+      virtual-kubelet.koupleless.io/component: module
+      module.koupleless.io/name: biz1-web-single-host
+      module.koupleless.io/version: 0.0.1-SNAPSHOT
   template:
     metadata:
       labels:
-        module: biz1
         virtual-kubelet.koupleless.io/component: module
+        module.koupleless.io/name: biz1-web-single-host
+        module.koupleless.io/version: 0.0.1-SNAPSHOT
     spec:
       containers:
-        - name: biz1
-          image: https://serverless-opensource.oss-cn-shanghai.aliyuncs.com/module-packages/stable/biz1-web-single-host-0.0.1-SNAPSHOT-ark-biz.jar
+        - name: biz1-web-single-host  # this name must same with the biz name defined in the jar
+          image: https://koupleless-dosc.oss-cn-hongkong.aliyuncs.com/biz1-web-single-host-0.0.1-SNAPSHOT-ark-biz.jar
           env:
             - name: BIZ_VERSION
               value: 0.0.1-SNAPSHOT
@@ -26,18 +29,24 @@ spec:
           requiredDuringSchedulingIgnoredDuringExecution:
             nodeSelectorTerms:
               - matchExpressions:
+                  # these labels in vnode generated in base `https://github.com/koupleless/runtime/blob/main/arklet-core/src/main/java/com/alipay/sofa/koupleless/arklet/core/hook/base/BaseMetadataHookImpl.java`
+                  # you can define your own labels by implementing your own BaseMetadataHookImpl
                   - key: base.koupleless.io/name
                     operator: In
                     values:
-                      - base
-                  - key: base.koupleless.io/version
-                    operator: In
-                    values:
-                      - 1.0.0
+                      - TO_BE_IMPLEMENTED
                   - key: base.koupleless.io/cluster-name
                     operator: In
                     values:
                       - default
+        podAntiAffinity: # 打散调度核心配置
+          requiredDuringSchedulingIgnoredDuringExecution:
+          - labelSelector:
+              matchLabels:
+                  virtual-kubelet.koupleless.io/component: module
+                  module.koupleless.io/name: biz1-web-single-host
+                  module.koupleless.io/version: 0.0.1-SNAPSHOT
+            topologyKey: topology.kubernetes.io/zone
       tolerations:
         - key: "schedule.koupleless.io/virtual-node"
           operator: "Equal"
